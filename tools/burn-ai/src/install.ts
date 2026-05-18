@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { claudeStatusLineHasIngest, getClaudeStatusLineCommand, readClaudeSettings } from "./claude.js";
 import { ensureConfig } from "./config.js";
 import { ensureDir, isFile, readJsonFile, writeJsonAtomic } from "./fs-util.js";
-import { ensureSwiftBarInstalled, installMenuBar, openSwiftBar, uninstallMenuBar } from "./menubar.js";
+import { addSwiftBarToLoginItems, ensureSwiftBarInstalled, installMenuBar, openSwiftBar, uninstallMenuBar } from "./menubar.js";
 import { buildPaths } from "./paths.js";
 import { RuntimePaths } from "./types.js";
 
@@ -363,6 +363,7 @@ export function install(options: { dryRun?: boolean } = {}) {
   if (!dryRun) {
     messages.push(...openSwiftBar());
   }
+  messages.push(...addSwiftBarToLoginItems({ dryRun }));
   messages.push(...installClaudeStatusLine(paths, { dryRun }));
 
   const args = installedCliCommand(paths);

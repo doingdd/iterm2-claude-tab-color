@@ -231,6 +231,38 @@ export function openSwiftBar() {
   }
 }
 
+export function addSwiftBarToLoginItems(options: { dryRun?: boolean } = {}) {
+  const dryRun = options.dryRun ?? false;
+  const appPath = swiftBarAppPath();
+  if (!appPath) {
+    return ["SwiftBar is not installed; skipping login item."];
+  }
+
+  try {
+    const result = execFileSync("osascript", [
+      "-e", 'tell application "System Events" to get the name of every login item',
+    ], { encoding: "utf8" });
+    if (result.includes("SwiftBar")) {
+      return ["SwiftBar already in login items."];
+    }
+  } catch {
+    // Permission or access issue; try to add anyway.
+  }
+
+  if (dryRun) {
+    return [`[dry-run] would add SwiftBar to login items: ${appPath}`];
+  }
+
+  try {
+    execFileSync("osascript", [
+      "-e", `tell application "System Events" to make login item at end with properties {name:"SwiftBar", path:${JSON.stringify(appPath)}, hidden:false}`,
+    ]);
+    return ["Added SwiftBar to login items (auto-starts on login)."];
+  } catch (error) {
+    return [`Failed to add SwiftBar to login items: ${error instanceof Error ? error.message : String(error)}. Add manually in System Settings → General → Login Items.`];
+  }
+}
+
 function swiftBarEscape(value: string) {
   return value.replaceAll("|", "\\|");
 }
