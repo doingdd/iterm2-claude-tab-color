@@ -1,4 +1,4 @@
-export type ProviderId = "claude" | "codex";
+export type ProviderId = "claude" | "codex" | "glm";
 export type WindowName = "five_hour" | "seven_day";
 export type BurnProfile = "low" | "high";
 export type BurnState =
@@ -45,12 +45,18 @@ export interface DoctorCheck {
   message: string;
 }
 
+export interface GlmConfig {
+  baseUrl?: string;
+  apiKey?: string;
+}
+
 export interface RuntimePaths {
   homeDir: string;
   stateDir: string;
   configFile: string;
   claudeDir: string;
   codexDir: string;
+  glmDir: string;
   notificationStateFile: string;
   statusFile: string;
   starPromptFile: string;
@@ -90,4 +96,5 @@ export interface StatusSnapshot {
 
 export interface BurnConfig {
   providers: ProviderId[];
+  glm?: GlmConfig;
 }

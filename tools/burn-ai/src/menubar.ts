@@ -23,11 +23,13 @@ const STATE_LABEL: Record<BurnState, string> = {
 const PROVIDER_ICON_ASSET: Record<string, string> = {
   claude: "claude-code-official.png",
   codex: "codex-openai-official.png",
+  glm: "glm-zhipu-official.png",
 };
 
 const PROVIDER_ICON_FALLBACK: Record<string, string> = {
   claude: "sparkles",
   codex: "curlybraces.square.fill",
+  glm: "cpu",
 };
 
 const TITLE_ICON_ASSET = "provider-icons-official.png";
@@ -55,7 +57,7 @@ const STATE_PRIORITY: Record<BurnState, number> = {
 const TEXT_COLOR = "#111827,#F9FAFB";
 const MUTED_COLOR = "#6B7280,#A1A1AA";
 const ROW_FONT = "Menlo";
-const TITLE_PROVIDER_ORDER = ["codex", "claude"];
+const TITLE_PROVIDER_ORDER = ["codex", "claude", "glm"];
 const TITLE_SEPARATOR = "│";
 const METER_WIDTH = 12;
 const ASSET_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "assets");
@@ -97,7 +99,8 @@ function drawImage(payload, variant) {
     if (index > 0) {
       width += segmentGap + dividerWidth + segmentGap;
     }
-    width += iconSize + iconTextGap + Math.ceil($(segment.text).sizeWithAttributes(attrs).width);
+    const hasIcon = Boolean(segment.iconPath);
+    width += (hasIcon ? iconSize + iconTextGap : 0) + Math.ceil($(segment.text).sizeWithAttributes(attrs).width);
   });
   width = Math.max(payload.minWidth * scale, width);
 
@@ -123,8 +126,8 @@ function drawImage(payload, variant) {
       if (icon) {
         icon.drawInRectFromRectOperationFraction($.NSMakeRect(x, iconY, iconSize, iconSize), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1);
       }
+      x += iconSize + iconTextGap;
     }
-    x += iconSize + iconTextGap;
     $(segment.text).drawAtPointWithAttributes($.NSMakePoint(x, textY), attrs);
     x += Math.ceil($(segment.text).sizeWithAttributes(attrs).width);
   });
@@ -328,7 +331,7 @@ function titleImageValue(providers: StatusSnapshot["providers"]) {
     text: titleSegment(provider),
     iconPath: providerIconPath(provider.usage.provider),
   }));
-  if (segments.length === 0 || segments.some((segment) => !segment.iconPath)) {
+  if (segments.length === 0) {
     return null;
   }
 
@@ -442,6 +445,9 @@ function maxProviderAge(snapshot: StatusSnapshot) {
 function issueLabel(code: string) {
   if (code === "CLAUDE_INGEST_MISSING") {
     return "Claude not connected";
+  }
+  if (code === "GLM_API_KEY_MISSING") {
+    return "GLM API key not set";
   }
   if (code === "USAGE_STALE") {
     return "Usage data is stale";

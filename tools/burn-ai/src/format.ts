@@ -19,7 +19,9 @@ function windowLabel(window: UsageWindow) {
 }
 
 function providerLabel(provider: string) {
-  return provider === "claude" ? "Claude" : "Codex";
+  if (provider === "claude") return "Claude";
+  if (provider === "glm") return "GLM";
+  return "Codex";
 }
 
 export function formatProviderLabel(provider: string) {

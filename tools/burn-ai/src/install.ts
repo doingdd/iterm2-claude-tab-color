@@ -3,11 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { claudeStatusLineHasIngest, getClaudeStatusLineCommand, readClaudeSettings } from "./claude.js";
-import { ensureConfig } from "./config.js";
+import { ensureConfig, readConfig } from "./config.js";
 import { ensureDir, isFile, readJsonFile, writeJsonAtomic } from "./fs-util.js";
 import { addSwiftBarToLoginItems, ensureSwiftBarInstalled, installMenuBar, openSwiftBar, uninstallMenuBar } from "./menubar.js";
 import { buildPaths } from "./paths.js";
-import { RuntimePaths } from "./types.js";
+import { RuntimePaths, BurnConfig } from "./types.js";
 
 export const LAUNCHD_LABEL = "com.duying.burn-ai";
 const MARKER = "burn-ai managed";
@@ -357,6 +357,16 @@ export function install(options: { dryRun?: boolean } = {}) {
     messages.push(`[dry-run] would ensure config file: ${paths.configFile}`);
   } else if (ensureConfig(paths)) {
     messages.push(`Created config file: ${paths.configFile}`);
+  }
+
+  if (!dryRun) {
+    const config = readConfig(paths);
+    if (!config.glm?.apiKey) {
+      messages.push("");
+      messages.push("To enable GLM Coding Plan monitoring:");
+      messages.push("  Edit ~/.burn-ai/config.json and set glm.apiKey to your Zhipu API key.");
+      messages.push("  Get your key at: https://open.bigmodel.cn");
+    }
   }
   messages.push(...ensureSwiftBarInstalled({ dryRun }));
   messages.push(...installMenuBar({ dryRun }));

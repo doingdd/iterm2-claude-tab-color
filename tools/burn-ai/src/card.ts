@@ -15,7 +15,9 @@ function escapeXml(value: string) {
 }
 
 function providerLabel(provider: string) {
-  return provider === "claude" ? "Claude" : "Codex";
+  if (provider === "claude") return "Claude";
+  if (provider === "glm") return "GLM";
+  return "Codex";
 }
 
 function cardTheme(state: string) {

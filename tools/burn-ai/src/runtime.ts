@@ -3,6 +3,7 @@ import path from "node:path";
 import { readConfig } from "./config.js";
 import { collectCodexUsage } from "./codex.js";
 import { readJsonFile } from "./fs-util.js";
+import { collectGlmUsage } from "./glm.js";
 import { buildPaths } from "./paths.js";
 import { loadLatestUsage, loadSamples, saveUsage } from "./store.js";
 import { BurnAnalysis, BurnProfile, ProviderUsage, RuntimePaths, StatusIssue, StatusSnapshot } from "./types.js";
@@ -14,16 +15,16 @@ import {
 } from "./status.js";
 
 export function loadFixtureUsages(fixturesDir: string): ProviderUsage[] {
-  const providers = ["claude", "codex"] as const;
+  const providers = ["claude", "codex", "glm"] as const;
   return providers
     .map((provider) => readJsonFile<ProviderUsage>(path.join(fixturesDir, provider, "latest.json")))
     .filter((item): item is ProviderUsage => item !== null);
 }
 
-export function collectLocalState(options: { fixtures?: boolean } = {}): {
+export async function collectLocalState(options: { fixtures?: boolean } = {}): Promise<{
   usages: ProviderUsage[];
   issues: StatusIssue[];
-} {
+}> {
   if (options.fixtures) {
     return { usages: loadFixtureUsages(path.resolve("fixtures")), issues: [] };
   }
@@ -74,11 +75,47 @@ export function collectLocalState(options: { fixtures?: boolean } = {}): {
     }
   }
 
+  if (monitored.has("glm")) {
+    const glmConfig = config.glm;
+    if (!glmConfig?.apiKey) {
+      issues.push({
+        provider: "glm",
+        severity: "warning",
+        code: "GLM_API_KEY_MISSING",
+        message: "GLM API key not configured. Edit ~/.burn-ai/config.json to set glm.apiKey.",
+      });
+    } else {
+      try {
+        const glm = await collectGlmUsage(glmConfig);
+        saveUsage(glm, paths);
+        usages.push(glm);
+      } catch (error) {
+        const cached = loadLatestUsage("glm", paths);
+        if (cached) {
+          usages.push(cached);
+          issues.push({
+            provider: "glm",
+            severity: "warning",
+            code: "GLM_USING_CACHE",
+            message: `GLM live usage unavailable; using cached usage from ${cached.observedAt}. ${error instanceof Error ? error.message : String(error)}`,
+          });
+        } else {
+          issues.push({
+            provider: "glm",
+            severity: "error",
+            code: "GLM_USAGE_MISSING",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+  }
+
   return { usages, issues };
 }
 
-export function collectLocalUsages(options: { fixtures?: boolean } = {}): ProviderUsage[] {
-  return collectLocalState(options).usages;
+export async function collectLocalUsages(options: { fixtures?: boolean } = {}): Promise<ProviderUsage[]> {
+  return (await collectLocalState(options)).usages;
 }
 
 export function analyzeUsages(usages: ProviderUsage[], profile: BurnProfile) {
@@ -110,8 +147,8 @@ export function analyzeFixtureUsages(usages: ProviderUsage[], profile: BurnProfi
   return createStatusSnapshot(usages, profile, { fixtureSamples }).providers.map((provider) => provider.analysis);
 }
 
-export function collectStatusSnapshot(options: { fixtures?: boolean } = {}) {
-  const { usages, issues } = collectLocalState(options);
+export async function collectStatusSnapshot(options: { fixtures?: boolean } = {}) {
+  const { usages, issues } = await collectLocalState(options);
   const profile = readProfile();
   const fixtureSamples = options.fixtures
     ? new Map<string, ProviderUsage[]>(usages.map((usage) => [usage.provider, loadFixtureSamples(usage.provider)]))
@@ -127,7 +164,7 @@ export function loadDisplayStatusSnapshot(
   options: { fixtures?: boolean; refresh?: boolean; paths?: RuntimePaths } = {},
 ): StatusSnapshot {
   if (options.fixtures || options.refresh) {
-    return collectStatusSnapshot({ fixtures: options.fixtures });
+    throw new Error("Use collectStatusSnapshot() for async refresh; loadDisplayStatusSnapshot is sync (file-only)");
   }
 
   const snapshot = loadStatusSnapshot(options.paths);

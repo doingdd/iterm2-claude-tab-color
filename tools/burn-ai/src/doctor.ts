@@ -111,6 +111,34 @@ export function runDoctor(options: { dryRun?: boolean } = {}): DoctorCheck[] {
     });
   }
 
+  if (monitored.has("glm")) {
+    const hasApiKey = Boolean(config.glm?.apiKey);
+    checks.push({
+      name: "GLM API key",
+      ok: hasApiKey,
+      message: hasApiKey
+        ? "configured"
+        : "not set; edit ~/.burn-ai/config.json to set glm.apiKey",
+    });
+
+    const glmLatest = providerLatestPath(paths, "glm");
+    checks.push({
+      name: "GLM usage cache",
+      ok: !hasApiKey || isFile(glmLatest),
+      message: isFile(glmLatest)
+        ? `found ${glmLatest}`
+        : hasApiKey
+          ? `missing ${glmLatest}; run burn-ai daemon --once to collect`
+          : "skipped (API key not set)",
+    });
+  } else {
+    checks.push({
+      name: "GLM",
+      ok: true,
+      message: "disabled by config",
+    });
+  }
+
   const backend = notificationBackend();
   const notificationOk = backend !== "unsupported" && backend !== "burnt-toast";
   checks.push({

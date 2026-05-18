@@ -50,6 +50,16 @@ Burn AI 是第三件工具：读取本机 Claude Code / Codex 已产生的 codin
 - 不鼓励每个 5h 窗口打满；核心目标是在 7d 总预算下让 5h 不空转。
 - 样本不足时状态为 `RAW`，只能展示原始 usage 和 limit risk，不能假装给动态建议。
 
+## 菜单栏图标与插件保护
+
+- `titleImageValue` 使用 AppKit/JXA 渲染复合标题图像，每个 provider 有独立图标和文字段。新增 provider 时如果缺少 icon 资源文件，不能让整个复合标题回退到静态 `provider-icons-official.png`——这会导致多个 provider 图标挤在一起。正确做法：让缺少 icon 的 segment 跳过图标空间但仍渲染文字，保证有 icon 的 provider 图标独立、间距正常。
+- `PROVIDER_ICON_ASSET` 中声明了 icon 文件名的 provider，如果对应 PNG 不存在于 `assets/`，render 层用 `PROVIDER_ICON_FALLBACK` 的 SF Symbol 兜底。新增 provider 必须同时提供 icon 资源或确认 fallback 符号可用。
+- 任何涉及 `menubar.ts`、`install.ts`、`daemon.ts`、`cli.ts` 的代码变更，在执行完 `npm test` 和 `burn-ai install` 后，**必须验证 SwiftBar 插件文件仍然存在**：
+  1. 读取 SwiftBar 当前 `PluginDirectory`：`defaults read com.ameba.SwiftBar PluginDirectory`
+  2. 确认 `<PluginDirectory>/burn-ai.1m.js` 文件存在且可执行
+  3. 如果文件丢失，立即执行 `burn-ai menubar install` 恢复
+- 不要假设 `burn-ai install` 写入的插件文件在 SwiftBar 重启后仍然保留。SwiftBar 可能在插件执行出错时清除或跳过插件文件。每次验证流程结束前都要重新检查。
+
 ## 验证
 
 修改本工具后至少运行：
@@ -67,5 +77,13 @@ burn-ai status --refresh --json
 burn-ai status --json
 burn-ai menubar render
 ```
+
+每次 `burn-ai install` 后必须确认 SwiftBar 插件文件存在：
+```bash
+PLUGINDIR=$(defaults read com.ameba.SwiftBar PluginDirectory 2>/dev/null || echo "$HOME/Library/Application Support/SwiftBar/Plugins")
+ls -la "$PLUGINDIR/burn-ai.1m.js"
+```
+
+如果文件不存在，执行 `burn-ai menubar install` 恢复后再继续验证。
 
 真实 install 是本工具代码变更的必跑项；`npx --no-install burn-ai install` 和 `burn-ai install` 两条路径都要覆盖。验证后不要提交 `node_modules/` 或 `dist/`。

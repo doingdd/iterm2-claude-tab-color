@@ -1,8 +1,8 @@
 # Burn AI
 
-Burn AI is BurnKit's plan-burn layer. It monitors local Claude Code and Codex coding plan usage, then tells you whether your current pace is under-burning, on track, over-burning, or close to a limit.
+Burn AI is BurnKit's plan-burn layer. It monitors local Claude Code, Codex, and GLM (Zhipu AI) coding plan usage, then tells you whether your current pace is under-burning, on track, over-burning, or close to a limit.
 
-It does not manage login state, credentials, or API keys. It only reads usage data already produced by local Claude Code and Codex tooling.
+It does not manage login state or credentials. For Claude and Codex it reads usage data already produced locally. For GLM it calls the Zhipu AI quota API using an API key stored in `~/.burn-ai/config.json`.
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ burn-ai status
 |---------|---------|
 | `burn-ai install` | Install runtime, launchd checker, SwiftBar host/plugin, and Claude ingest when safe |
 | `burn-ai uninstall` | Remove Burn AI managed launchd/status line/plugin config |
-| `burn-ai doctor` | Check local Codex/Claude usage sources and notification backend |
+| `burn-ai doctor` | Check local Codex/Claude/GLM usage sources and notification backend |
 | `burn-ai status` | Print 5h/7d usage and burn state from `~/.burn-ai/status.json` |
 | `burn-ai status --json` | Print the same status snapshot written to `~/.burn-ai/status.json` |
 | `burn-ai status --refresh` | Re-collect local usage before printing status |
@@ -69,6 +69,22 @@ Without this integration, Claude usage stays unavailable in Burn AI. Claude burn
 
 Burn AI reads Codex `payload.rate_limits` from local `~/.codex` JSONL session data. If no such data exists, run Codex CLI or Codex App once and complete a normal interaction.
 
+## GLM (Zhipu AI)
+
+Burn AI calls the Zhipu AI quota API (`GET /api/monitor/usage/quota/limit`) to read 5h and 7d usage windows. You need to set `glm.apiKey` in `~/.burn-ai/config.json`:
+
+```json
+{
+  "providers": ["codex", "claude", "glm"],
+  "glm": {
+    "baseUrl": "https://open.bigmodel.cn",
+    "apiKey": "your-api-key"
+  }
+}
+```
+
+Get your API key from the [Zhipu AI console](https://open.bigmodel.cn). Without this key, GLM monitoring will report `GLM_API_KEY_MISSING`.
+
 ## Profiles
 
 Set `BURN_AI_PROFILE=high` for the more aggressive profile. The default is `low`.
@@ -85,7 +101,7 @@ Both profiles are constrained by the 7d budget. Burn AI does not treat "fill eve
 
 ```json
 {
-  "providers": ["codex", "claude"]
+  "providers": ["codex", "claude", "glm"]
 }
 ```
 
@@ -103,10 +119,10 @@ burn-ai menubar install
 
 If SwiftBar is not installed, `burn-ai doctor` will report it. If SwiftBar already has a custom plugin folder, Burn AI uses that folder.
 
-The menu bar title shows the official OpenAI/Codex and Claude Code icons with compact 5h/7d percentages:
+The menu bar title shows the official Codex, Claude Code, and Zhipu AI icons with compact 5h/7d percentages:
 
 ```text
-{Codex icon} 5H:14%,7D:67% │ {Claude icon} 5H:24%,7D:74%
+{Codex icon} 5H:14%,7D:67% │ {Claude icon} 5H:24%,7D:74% │ {GLM icon} 5H:36%,7D:7%
 ```
 
 SwiftBar only supports one bitmap image on a single stable title item, so Burn AI renders the full title into one transparent PNG at render time. That bitmap keeps each provider icon next to its own usage segment while avoiding SwiftBar's multi-title rotation behavior. The dropdown stays read-only and uses SwiftBar-native symbols, badges, progress meters, reset time, target range, data age, and warnings. SwiftBar is a host dependency; `burn-ai uninstall` removes the Burn AI plugin but does not uninstall SwiftBar itself.
@@ -116,10 +132,11 @@ SwiftBar only supports one bitmap image on a single stable title item, so Burn A
 | Path | Purpose |
 |------|---------|
 | `~/.burn-ai/app/` | Stable runtime copy used by launchd, Claude ingest hints, and SwiftBar |
-| `~/.burn-ai/config.json` | Provider selection, default `["codex", "claude"]` |
+| `~/.burn-ai/config.json` | Provider selection, default `["codex", "claude", "glm"]` |
 | `~/.burn-ai/status.json` | Stable display-layer entry point |
 | `~/.burn-ai/codex/latest.json` | Latest normalized Codex usage |
 | `~/.burn-ai/claude/latest.json` | Latest normalized Claude usage after status line ingest |
+| `~/.burn-ai/glm/latest.json` | Latest normalized GLM usage from Zhipu AI quota API |
 | `~/.local/bin/burn-ai` | CLI shim pointing at the stable runtime |
 | `~/Library/LaunchAgents/com.duying.burn-ai.plist` | macOS launchd agent |
 | SwiftBar `PluginDirectory` / `burn-ai.1m.js` | Menu bar plugin wrapper |

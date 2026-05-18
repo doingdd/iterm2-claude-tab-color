@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { RuntimePaths } from "./types.js";
+import { RuntimePaths, ProviderId } from "./types.js";
 
 export function buildPaths(homeDir = os.homedir()): RuntimePaths {
   const stateDir = path.join(homeDir, ".burn-ai");
@@ -10,6 +10,7 @@ export function buildPaths(homeDir = os.homedir()): RuntimePaths {
     configFile: path.join(stateDir, "config.json"),
     claudeDir: path.join(stateDir, "claude"),
     codexDir: path.join(stateDir, "codex"),
+    glmDir: path.join(stateDir, "glm"),
     notificationStateFile: path.join(stateDir, "notifications.json"),
     statusFile: path.join(stateDir, "status.json"),
     starPromptFile: path.join(stateDir, "star-prompt.json"),
@@ -32,10 +33,16 @@ export function installedAssetPath(homeDir: string, assetName: string) {
   return path.join(homeDir, ".burn-ai", "app", "assets", assetName);
 }
 
-export function providerLatestPath(paths: RuntimePaths, provider: "claude" | "codex") {
-  return path.join(provider === "claude" ? paths.claudeDir : paths.codexDir, "latest.json");
+function providerDir(paths: RuntimePaths, provider: ProviderId): string {
+  if (provider === "glm") return paths.glmDir;
+  if (provider === "claude") return paths.claudeDir;
+  return paths.codexDir;
 }
 
-export function providerSamplesPath(paths: RuntimePaths, provider: "claude" | "codex") {
-  return path.join(provider === "claude" ? paths.claudeDir : paths.codexDir, "samples.jsonl");
+export function providerLatestPath(paths: RuntimePaths, provider: ProviderId) {
+  return path.join(providerDir(paths, provider), "latest.json");
+}
+
+export function providerSamplesPath(paths: RuntimePaths, provider: ProviderId) {
+  return path.join(providerDir(paths, provider), "samples.jsonl");
 }

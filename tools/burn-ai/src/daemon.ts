@@ -1,8 +1,8 @@
 import { collectStatusSnapshot } from "./runtime.js";
 import { markNotified, sendNotification, shouldNotify } from "./notifier.js";
 
-export function runDaemonOnce(options: { dryRun?: boolean } = {}) {
-  const snapshot = collectStatusSnapshot();
+export async function runDaemonOnce(options: { dryRun?: boolean } = {}) {
+  const snapshot = await collectStatusSnapshot();
   const messages: string[] = [];
 
   for (const { analysis } of snapshot.providers) {

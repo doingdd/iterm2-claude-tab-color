@@ -1,9 +1,9 @@
 import { readJsonFile, writeJsonAtomic } from "./fs-util.js";
 import { buildPaths } from "./paths.js";
-import { BurnConfig, ProviderId, RuntimePaths } from "./types.js";
+import { BurnConfig, GlmConfig, ProviderId, RuntimePaths } from "./types.js";
 
-const DEFAULT_PROVIDERS: ProviderId[] = ["codex", "claude"];
-const PROVIDERS = new Set<ProviderId>(["codex", "claude"]);
+const DEFAULT_PROVIDERS: ProviderId[] = ["codex", "claude", "glm"];
+const PROVIDERS = new Set<ProviderId>(["codex", "claude", "glm"]);
 
 function normalizeProviders(value: unknown): ProviderId[] {
   if (!Array.isArray(value)) {
@@ -24,7 +24,10 @@ function envProviders() {
 }
 
 export function defaultConfig(): BurnConfig {
-  return { providers: DEFAULT_PROVIDERS };
+  return {
+    providers: DEFAULT_PROVIDERS,
+    glm: { baseUrl: "https://open.bigmodel.cn", apiKey: "" },
+  };
 }
 
 export function readConfig(paths: RuntimePaths = buildPaths()): BurnConfig {
@@ -39,13 +42,18 @@ export function readConfig(paths: RuntimePaths = buildPaths()): BurnConfig {
   }
   return {
     providers: normalizeProviders(fileConfig.providers),
+    glm: fileConfig.glm ?? defaultConfig().glm,
   };
 }
 
 export function ensureConfig(paths: RuntimePaths = buildPaths()) {
-  if (readJsonFile<Partial<BurnConfig>>(paths.configFile)) {
-    return false;
+  const existing = readJsonFile<Partial<BurnConfig>>(paths.configFile);
+  if (!existing) {
+    writeJsonAtomic(paths.configFile, defaultConfig());
+    return true;
   }
-  writeJsonAtomic(paths.configFile, defaultConfig());
-  return true;
+  if (!existing.glm) {
+    writeJsonAtomic(paths.configFile, { ...existing, glm: defaultConfig().glm });
+  }
+  return false;
 }

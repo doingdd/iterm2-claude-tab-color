@@ -3,7 +3,7 @@ import { usageFromClaudeStatusLine, readStdin } from "./claude.js";
 import { install, uninstall } from "./install.js";
 import { saveUsage } from "./store.js";
 import { formatStatusRows, formatAnalysisDetail, formatIssues, formatProviderMeta } from "./format.js";
-import { loadDisplayStatusSnapshot } from "./runtime.js";
+import { loadDisplayStatusSnapshot, collectStatusSnapshot } from "./runtime.js";
 import { runDaemonOnce } from "./daemon.js";
 import { doctorHasFailures, formatDoctor, runDoctor } from "./doctor.js";
 import { installMenuBar, renderMenuBar, uninstallMenuBar } from "./menubar.js";
@@ -72,7 +72,9 @@ async function main() {
       const fixtures = hasFlag(args, "--fixtures");
       const json = hasFlag(args, "--json");
       const refresh = hasFlag(args, "--refresh");
-      const snapshot = loadDisplayStatusSnapshot({ fixtures, refresh });
+      const snapshot = refresh || fixtures
+        ? await collectStatusSnapshot({ fixtures })
+        : loadDisplayStatusSnapshot();
       if (json) {
         console.log(JSON.stringify(snapshot, null, 2));
         return;
@@ -121,7 +123,7 @@ async function main() {
     }
 
     if (command === "daemon") {
-      console.log(runDaemonOnce({ dryRun }).join("\n"));
+      console.log((await runDaemonOnce({ dryRun })).join("\n"));
       return;
     }
 

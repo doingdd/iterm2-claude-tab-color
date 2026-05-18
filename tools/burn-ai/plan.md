@@ -27,7 +27,7 @@
 - `burn-ai install` 必须创建用户级 CLI shim：`~/.local/bin/burn-ai -> ~/.burn-ai/app/dist/cli.js`，确保日常命令不依赖全局 npm install。
 - `burn-ai install` 必须检查 SwiftBar；macOS 上缺失时通过 Homebrew cask 安装 SwiftBar，然后安装/更新 Burn AI SwiftBar 插件并启动 SwiftBar。
 - SwiftBar 插件目录必须读取 SwiftBar 当前 `PluginDirectory`，不能假设默认插件目录生效。
-- provider 监控范围由 `~/.burn-ai/config.json` 的 `providers` 控制，默认 `["codex", "claude"]`；未启用的 provider 不采集、不报缺失。
+- provider 监控范围由 `~/.burn-ai/config.json` 的 `providers` 控制，默认 `["codex", "claude", "glm"]`；未启用的 provider 不采集、不报缺失。
 - daemon 每次运行都必须写统一状态文件 `~/.burn-ai/status.json`，该文件是后续所有展示层的唯一稳定数据入口。
 - Codex 数据源：
   - 读取 `~/.codex` session/rollout JSONL 中最新 `payload.rate_limits`。
@@ -36,7 +36,7 @@
   - 缺字段直接报错并提示用户先正常运行 Codex CLI/App。
 - Claude 数据源：
   - 如果用户没有 `statusLine.command`，`install` 创建本工具的最小 status line。
-  - 如果用户已有 `statusLine.command`，不覆盖、不 wrapper，只检测是否已包含 `burn-ai ingest claude-statusline`；未包含则输出手动接入说明。
+  - 如果用户已有 `statusLine.command`，安装器交互式请求确认，确认后写入 Burn AI wrapper、保存原命令元数据、更新 Claude settings；用户拒绝或非交互环境跳过修改并输出手动接入步骤。
   - 已接入时避免重复提示或重复追加。
 - 通知机制：
   - 系统通知只作为唤醒信号，不作为主展示层；短暂横幅无法承载 Burn AI 的完整决策信息。
