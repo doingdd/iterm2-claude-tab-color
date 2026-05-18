@@ -70,6 +70,9 @@ POLL_INTERVAL        = CFG["POLL_INTERVAL"]
 IDLE_STATE_DIR       = Path(CFG["IDLE_STATE_DIR"])
 CONCURRENT_TARGET    = CFG["CONCURRENT_TARGET"]
 FAST_EXIT_CHECK_INTERVAL = 1.0
+# state 文件最小存活时间：新写入的文件在此时长内不会被快速清理删除。
+# 防止 agent 刚回复完（Stop hook 写 state）→ jobName 短暂变回 shell → 被误删。
+MIN_STATE_AGE_SEC = 10
 
 COLOR_GREEN  = iterm2.Color(CFG["COLOR_GREEN_R"],  CFG["COLOR_GREEN_G"],  CFG["COLOR_GREEN_B"])
 COLOR_YELLOW = iterm2.Color(CFG["COLOR_YELLOW_R"], CFG["COLOR_YELLOW_G"], CFG["COLOR_YELLOW_B"])
@@ -217,6 +220,73 @@ def _process_tree_has_agent(root_pid: int, agent: str) -> Optional[bool]:
         return None
 
 
+def _find_tmux_bin() -> str:
+    """查找 tmux 可执行文件路径。launchd 环境 PATH 最小，需用绝对路径。"""
+    for candidate in [
+        "/opt/homebrew/bin/tmux",
+        "/usr/local/bin/tmux",
+        "/usr/bin/tmux",
+    ]:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    # fallback: 依赖 PATH
+    return "tmux"
+
+
+_TMUX_BIN: Optional[str] = None
+
+
+def _tmux_bin() -> str:
+    global _TMUX_BIN
+    if _TMUX_BIN is None:
+        _TMUX_BIN = _find_tmux_bin()
+    return _TMUX_BIN
+
+
+def _tmux_session_for_tty(tty: str) -> Optional[str]:
+    """给定 /dev/ttysXXX，返回该 tty 上 tmux client 所属的 session 名称。"""
+    if not tty:
+        return None
+    try:
+        result = subprocess.run(
+            [_tmux_bin(), "list-clients", "-F", "#{client_tty} #{session_name}"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(" ", 1)
+            if len(parts) == 2 and parts[0] == tty:
+                return parts[1]
+        return None
+    except Exception:
+        return None
+
+
+def _tmux_session_has_agent(tmux_session: str, agent: str) -> Optional[bool]:
+    """检查 tmux session 任意 pane 的进程树中是否有 agent。"""
+    try:
+        result = subprocess.run(
+            [_tmux_bin(), "list-panes", "-t", tmux_session, "-a", "-F", "#{pane_pid}"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if result.returncode != 0:
+            return None
+        for pane_pid in result.stdout.splitlines():
+            pane_pid = pane_pid.strip()
+            if not pane_pid:
+                continue
+            tree_result = _process_tree_has_agent(int(pane_pid), agent)
+            if tree_result is True:
+                return True
+        return False
+    except Exception:
+        return None
+
+
 async def is_agent_running(session, agent: str) -> bool:
     """检测 iTerm2 pane 内是否还有指定 AI CLI 进程。
 
@@ -224,9 +294,30 @@ async def is_agent_running(session, agent: str) -> bool:
     session.server_pid，但该字段在部分 iTerm2 版本中为 None，会导致
     已退出的 agent pane 被误判为仍在运行。
 
+    当 iTerm2 pane 前台是 shell 时，额外检查该 tty 是否有 tmux client —
+    如果是，穿透 tmux session 检查 pane 进程树中的 agent。
+
     检测完全失败时返回 True（宁可不删，避免误清理）。
     """
     agent = _normalize_agent(agent)
+
+    # 优先检查 tmux 穿透：无论 jobName 是 shell 还是 tmux，
+    # 只要 tty 上有 tmux client，agent 可能藏在 tmux 进程树内。
+    try:
+        tty = await session.async_get_variable("tty")
+        if isinstance(tty, str):
+            tmux_session = _tmux_session_for_tty(tty)
+            if tmux_session is not None:
+                tmux_result = _tmux_session_has_agent(tmux_session, agent)
+                if tmux_result is True:
+                    return True
+                if tmux_result is False:
+                    return False
+                # None = 无法判断，保守认为仍在运行
+                return True
+    except Exception:
+        pass
+
     if await session_foreground_is_shell(session):
         return False
 
@@ -447,9 +538,16 @@ async def prune_finished_state_files(connection, states: dict[str, dict], *, app
         app = await iterm2.async_get_app(connection)
     remaining = dict(states)
 
+    now = time.time()
     for path, state in list(states.items()):
         sid = state.get("iterm2_session", "")
         if not sid:
+            continue
+
+        # 新写入的 state 文件在 MIN_STATE_AGE_SEC 内不清理，
+        # 防止 Stop hook 刚写完就被 jobName 瞬变误删。
+        idle_since = state.get("idle_since", 0)
+        if now - idle_since < MIN_STATE_AGE_SEC:
             continue
 
         uuid = extract_uuid(sid)
@@ -458,8 +556,17 @@ async def prune_finished_state_files(connection, states: dict[str, dict], *, app
 
         if session is None:
             reason = "iTerm2 session 已不存在"
-        elif await session_foreground_is_shell(session):
-            reason = "pane 已回到 shell"
+        else:
+            # tmux 穿透：无论 jobName 是 shell 还是 tmux，
+            # 只要 tty 上有 tmux client，agent 可能藏在 tmux 内，跳过快速清理。
+            try:
+                tty = await session.async_get_variable("tty")
+                if isinstance(tty, str) and _tmux_session_for_tty(tty) is not None:
+                    continue
+            except Exception:
+                pass
+            if await session_foreground_is_shell(session):
+                reason = "pane 已回到 shell"
 
         if not reason:
             continue

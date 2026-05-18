@@ -716,6 +716,10 @@ class TestPruneFinishedStateFiles(unittest.TestCase):
 
     def test_shell_pane_state_is_removed_without_process_scan(self):
         path = self._write_state("codex.json")
+        # idle_since 用当前时间，需要绕过 MIN_STATE_AGE_SEC 保护
+        data = json.loads(Path(path).read_text())
+        data["idle_since"] = time.time() - 30  # 模拟 30 秒前写入
+        Path(path).write_text(json.dumps(data))
         session = MagicMock()
         session.async_get_variable = AsyncMock(return_value="zsh")
         self.mock_app.get_session_by_id.return_value = session
