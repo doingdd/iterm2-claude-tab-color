@@ -139,6 +139,34 @@ export function runDoctor(options: { dryRun?: boolean } = {}): DoctorCheck[] {
     });
   }
 
+  if (monitored.has("deepseek")) {
+    const hasApiKey = Boolean(config.deepseek?.apiKey);
+    checks.push({
+      name: "DeepSeek API key",
+      ok: hasApiKey,
+      message: hasApiKey
+        ? "configured"
+        : "not set; edit ~/.burn-ai/config.json to set deepseek.apiKey",
+    });
+
+    const deepseekLatest = providerLatestPath(paths, "deepseek");
+    checks.push({
+      name: "DeepSeek balance cache",
+      ok: !hasApiKey || isFile(deepseekLatest),
+      message: isFile(deepseekLatest)
+        ? `found ${deepseekLatest}`
+        : hasApiKey
+          ? `missing ${deepseekLatest}; run burn-ai daemon --once to collect`
+          : "skipped (API key not set)",
+    });
+  } else {
+    checks.push({
+      name: "DeepSeek",
+      ok: true,
+      message: "disabled by config",
+    });
+  }
+
   const backend = notificationBackend();
   const notificationOk = backend !== "unsupported" && backend !== "burnt-toast";
   checks.push({

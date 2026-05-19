@@ -24,12 +24,14 @@ const PROVIDER_ICON_ASSET: Record<string, string> = {
   claude: "claude-code-official.png",
   codex: "codex-openai-official.png",
   glm: "glm-zhipu-official.png",
+  deepseek: "deepseek-official.png",
 };
 
 const PROVIDER_ICON_FALLBACK: Record<string, string> = {
   claude: "sparkles",
   codex: "curlybraces.square.fill",
   glm: "cpu",
+  deepseek: "bubble.left.and.bubble.right",
 };
 
 const TITLE_ICON_ASSET = "provider-icons-official.png";
@@ -57,7 +59,7 @@ const STATE_PRIORITY: Record<BurnState, number> = {
 const TEXT_COLOR = "#111827,#F9FAFB";
 const MUTED_COLOR = "#6B7280,#A1A1AA";
 const ROW_FONT = "Menlo";
-const TITLE_PROVIDER_ORDER = ["codex", "claude", "glm"];
+const TITLE_PROVIDER_ORDER = ["codex", "claude", "glm", "deepseek"];
 const TITLE_SEPARATOR = "│";
 const METER_WIDTH = 12;
 const ASSET_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "assets");
@@ -309,6 +311,11 @@ function titleProviders(snapshot: StatusSnapshot) {
 }
 
 function titleSegment(provider: StatusSnapshot["providers"][number]) {
+  const usage = provider.usage;
+  if (usage.balance && usage.windows.length === 0) {
+    const currency = usage.balance.currency === "CNY" ? "¥" : "$";
+    return `${currency}${usage.balance.total}`;
+  }
   const fiveHour = provider.analysis.fiveHour;
   const sevenDay = provider.analysis.sevenDay;
   const titleFive = fiveHour ? `${Math.round(fiveHour.usedPercent)}%` : "--";
@@ -449,6 +456,9 @@ function issueLabel(code: string) {
   if (code === "GLM_API_KEY_MISSING") {
     return "GLM API key not set";
   }
+  if (code === "DEEPSEEK_API_KEY_MISSING") {
+    return "DeepSeek API key not set";
+  }
   if (code === "USAGE_STALE") {
     return "Usage data is stale";
   }
@@ -504,6 +514,27 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
     const color = STATE_COLOR[item.analysis.state];
     const five = windowByName(item, "five_hour");
     const seven = windowByName(item, "seven_day");
+
+    if (item.usage.balance && item.usage.windows.length === 0) {
+      const currency = item.usage.balance.currency === "CNY" ? "¥" : "$";
+      const balanceText = `${currency}${item.usage.balance.total}`;
+      const availableLabel = item.usage.balance.isAvailable ? "Available" : "Depleted";
+      lines.push(line(`${formatProviderLabel(item.usage.provider)}  ${availableLabel}`, {
+        ...providerIconParams(item.usage.provider),
+        color: item.usage.balance.isAvailable ? OK_COLOR : ALERT_COLOR,
+        size: 14,
+        badge: balanceText,
+      }));
+      lines.push(line(`Balance  ${balanceText}`, {
+        color: TEXT_COLOR,
+        font: ROW_FONT,
+        size: 12,
+      }));
+      lines.push(line(item.analysis.message, { color: MUTED_COLOR, size: 12, length: 84 }));
+      lines.push("---");
+      continue;
+    }
+
     lines.push(line(`${formatProviderLabel(item.usage.provider)}  ${STATE_LABEL[item.analysis.state]}`, {
       ...providerIconParams(item.usage.provider),
       color,

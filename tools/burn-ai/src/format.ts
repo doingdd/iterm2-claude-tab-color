@@ -21,6 +21,7 @@ function windowLabel(window: UsageWindow) {
 function providerLabel(provider: string) {
   if (provider === "claude") return "Claude";
   if (provider === "glm") return "GLM";
+  if (provider === "deepseek") return "DeepSeek";
   return "Codex";
 }
 
@@ -41,6 +42,19 @@ export function formatStatusRows(usages: ProviderUsage[], analyses: BurnAnalysis
   const rows = ["Provider  Period  Usage              Reset     State"];
   for (const usage of usages) {
     const analysis = analyses.find((item) => item.provider === usage.provider);
+    if (usage.balance && usage.windows.length === 0) {
+      const currency = usage.balance.currency === "CNY" ? "¥" : "$";
+      rows.push(
+        [
+          providerLabel(usage.provider).padEnd(8),
+          "balance".padEnd(8),
+          `${currency}${usage.balance.total}`.padEnd(19),
+          "".padEnd(10),
+          analysis?.state ?? "RAW",
+        ].join(""),
+      );
+      continue;
+    }
     for (const window of usage.windows) {
       rows.push(
         [

@@ -4,6 +4,7 @@ import { readConfig } from "./config.js";
 import { collectCodexUsage } from "./codex.js";
 import { readJsonFile } from "./fs-util.js";
 import { collectGlmUsage } from "./glm.js";
+import { collectDeepseekUsage } from "./deepseek.js";
 import { buildPaths } from "./paths.js";
 import { loadLatestUsage, loadSamples, saveUsage } from "./store.js";
 import { BurnAnalysis, BurnProfile, ProviderUsage, RuntimePaths, StatusIssue, StatusSnapshot } from "./types.js";
@@ -15,7 +16,7 @@ import {
 } from "./status.js";
 
 export function loadFixtureUsages(fixturesDir: string): ProviderUsage[] {
-  const providers = ["claude", "codex", "glm"] as const;
+  const providers = ["claude", "codex", "glm", "deepseek"] as const;
   return providers
     .map((provider) => readJsonFile<ProviderUsage>(path.join(fixturesDir, provider, "latest.json")))
     .filter((item): item is ProviderUsage => item !== null);
@@ -104,6 +105,42 @@ export async function collectLocalState(options: { fixtures?: boolean } = {}): P
             provider: "glm",
             severity: "error",
             code: "GLM_USAGE_MISSING",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+  }
+
+  if (monitored.has("deepseek")) {
+    const deepseekConfig = config.deepseek;
+    if (!deepseekConfig?.apiKey) {
+      issues.push({
+        provider: "deepseek",
+        severity: "warning",
+        code: "DEEPSEEK_API_KEY_MISSING",
+        message: "DeepSeek API key not configured. Edit ~/.burn-ai/config.json to set deepseek.apiKey.",
+      });
+    } else {
+      try {
+        const deepseek = await collectDeepseekUsage(deepseekConfig);
+        saveUsage(deepseek, paths);
+        usages.push(deepseek);
+      } catch (error) {
+        const cached = loadLatestUsage("deepseek", paths);
+        if (cached) {
+          usages.push(cached);
+          issues.push({
+            provider: "deepseek",
+            severity: "warning",
+            code: "DEEPSEEK_USING_CACHE",
+            message: `DeepSeek live balance unavailable; using cached data from ${cached.observedAt}. ${error instanceof Error ? error.message : String(error)}`,
+          });
+        } else {
+          issues.push({
+            provider: "deepseek",
+            severity: "error",
+            code: "DEEPSEEK_USAGE_MISSING",
             message: error instanceof Error ? error.message : String(error),
           });
         }

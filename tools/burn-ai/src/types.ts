@@ -1,4 +1,4 @@
-export type ProviderId = "claude" | "codex" | "glm";
+export type ProviderId = "claude" | "codex" | "glm" | "deepseek";
 export type WindowName = "five_hour" | "seven_day";
 export type BurnProfile = "low" | "high";
 export type BurnState =
@@ -21,6 +21,11 @@ export interface ProviderUsage {
   observedAt: string;
   planType?: string | null;
   windows: UsageWindow[];
+  balance?: {
+    total: string;
+    currency: string;
+    isAvailable: boolean;
+  };
 }
 
 export interface BurnAnalysis {
@@ -50,6 +55,10 @@ export interface GlmConfig {
   apiKey?: string;
 }
 
+export interface DeepseekConfig {
+  apiKey?: string;
+}
+
 export interface RuntimePaths {
   homeDir: string;
   stateDir: string;
@@ -57,6 +66,7 @@ export interface RuntimePaths {
   claudeDir: string;
   codexDir: string;
   glmDir: string;
+  deepseekDir: string;
   notificationStateFile: string;
   statusFile: string;
   starPromptFile: string;
@@ -97,4 +107,5 @@ export interface StatusSnapshot {
 export interface BurnConfig {
   providers: ProviderId[];
   glm?: GlmConfig;
+  deepseek?: DeepseekConfig;
 }

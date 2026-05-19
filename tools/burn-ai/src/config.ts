@@ -1,9 +1,9 @@
 import { readJsonFile, writeJsonAtomic } from "./fs-util.js";
 import { buildPaths } from "./paths.js";
-import { BurnConfig, GlmConfig, ProviderId, RuntimePaths } from "./types.js";
+import { BurnConfig, GlmConfig, DeepseekConfig, ProviderId, RuntimePaths } from "./types.js";
 
-const DEFAULT_PROVIDERS: ProviderId[] = ["codex", "claude", "glm"];
-const PROVIDERS = new Set<ProviderId>(["codex", "claude", "glm"]);
+const DEFAULT_PROVIDERS: ProviderId[] = ["codex", "claude", "glm", "deepseek"];
+const PROVIDERS = new Set<ProviderId>(["codex", "claude", "glm", "deepseek"]);
 
 function normalizeProviders(value: unknown): ProviderId[] {
   if (!Array.isArray(value)) {
@@ -27,6 +27,7 @@ export function defaultConfig(): BurnConfig {
   return {
     providers: DEFAULT_PROVIDERS,
     glm: { baseUrl: "https://open.bigmodel.cn", apiKey: "" },
+    deepseek: { apiKey: "" },
   };
 }
 
@@ -43,6 +44,7 @@ export function readConfig(paths: RuntimePaths = buildPaths()): BurnConfig {
   return {
     providers: normalizeProviders(fileConfig.providers),
     glm: fileConfig.glm ?? defaultConfig().glm,
+    deepseek: fileConfig.deepseek ?? defaultConfig().deepseek,
   };
 }
 
@@ -54,6 +56,11 @@ export function ensureConfig(paths: RuntimePaths = buildPaths()) {
   }
   if (!existing.glm) {
     writeJsonAtomic(paths.configFile, { ...existing, glm: defaultConfig().glm });
+    return true;
+  }
+  if (!existing.deepseek) {
+    const current = readJsonFile<Partial<BurnConfig>>(paths.configFile) ?? existing;
+    writeJsonAtomic(paths.configFile, { ...current, deepseek: defaultConfig().deepseek });
   }
   return false;
 }

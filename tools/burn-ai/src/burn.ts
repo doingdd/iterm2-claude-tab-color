@@ -66,7 +66,7 @@ export function estimateConversionRate(samples: ProviderUsage[]): number | null 
 }
 
 function messageForState(provider: ProviderId, state: BurnState, fiveUsed?: number, target?: { min: number; max: number }) {
-  const label = provider === "claude" ? "Claude" : provider === "glm" ? "GLM" : "Codex";
+  const label = provider === "claude" ? "Claude" : provider === "glm" ? "GLM" : provider === "deepseek" ? "DeepSeek" : "Codex";
   if (state === "LIMIT_RISK") {
     return `${label} usage is close to a plan limit. Consider switching provider or lowering intensity.`;
   }
@@ -90,6 +90,21 @@ export function analyzeUsage(
 ): BurnAnalysis {
   const fiveHour = findWindow(usage, "five_hour");
   const sevenDay = findWindow(usage, "seven_day");
+
+  if (usage.balance && usage.windows.length === 0) {
+    const currency = usage.balance.currency === "CNY" ? "¥" : "$";
+    const balanceText = `${currency}${usage.balance.total}`;
+    return {
+      provider: usage.provider,
+      state: "RAW",
+      profile,
+      observedAt: usage.observedAt,
+      message: usage.balance.isAvailable
+        ? `${messageForState(usage.provider, "RAW")} balance: ${balanceText}`
+        : `${messageForState(usage.provider, "LIMIT_RISK")} balance depleted`,
+    };
+  }
+
   if (!fiveHour || !sevenDay) {
     return {
       provider: usage.provider,
