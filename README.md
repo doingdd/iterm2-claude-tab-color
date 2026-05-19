@@ -218,6 +218,32 @@ git diff --check
 
 When installing Burn AI from this repository, prefer `bin/burnkit install burn` or `bin/burnkit install all`; those paths rebuild `tools/burn-ai` before copying the runtime into `~/.burn-ai/app`.
 
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%">
+        <a href="https://github.com/huajuan404">
+          <img src="https://avatars.githubusercontent.com/u/142046284?v=4&s=100" width="100px;" alt="huajuan404"/>
+        </a>
+        <br />
+        <a href="https://github.com/huajuan404">huajuan404</a>
+        <br />
+        <a href="#" title="Code">💻</a>
+        <a href="#" title="Documentation">📖</a>
+        <a href="#" title="Design">🎨</a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
 ## License
 
 [MIT](LICENSE)
