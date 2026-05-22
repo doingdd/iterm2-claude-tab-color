@@ -19,6 +19,7 @@ Burn AI 是第三件工具：读取本机 Claude Code / Codex 已产生的 codin
 - npm 包名和 CLI 命令名都是 `burn-ai`。
 - 用户入口是 `npx burn-ai install`。
 - 日常命令是 `burn-ai doctor` 和 `burn-ai status`。
+- 每次 commit 涉及本目录代码变更时，必须 `npm version patch`（feat 用 `minor`）+ `npm publish`，将版本变更纳入同一 commit，确保 `npx` 拿到最新版。
 - provider 监控范围由 `~/.burn-ai/config.json` 的 `providers` 控制，默认 `["codex", "claude"]`；临时覆盖可用 `BURN_AI_PROVIDERS=codex,claude`。
 - v1 完整支持 macOS launchd；Windows 只保留通知/调度设计，不承诺可用。
 - 安装器必须把当前构建产物复制到 `~/.burn-ai/app/`，launchd 只能指向该稳定副本，不能指向 npx 临时缓存。

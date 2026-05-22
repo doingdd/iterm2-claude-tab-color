@@ -77,3 +77,13 @@ npx --no-install burn-ai menubar render
 ```
 
 `npx --no-install burn-ai install` 是真实安装验证，必须确认它会复制最新代码并重启 launchd agent；随后还必须跑一次 `burn-ai install`，确认已安装入口重复安装不会自删 runtime，且 SwiftBar 插件仍能渲染。
+
+## npm 发布
+
+`tools/burn-ai/` 已发布为 npm 包 `burn-ai`，用户入口是 `npx burn-ai install`。每次 commit 涉及 `tools/burn-ai/` 下的代码变更时，必须在 commit 之后、push 之前执行：
+
+1. `cd tools/burn-ai && npm version patch`（feat 级别变更用 `minor`）
+2. `npm publish`
+3. 将 `package.json` 和 `package-lock.json` 的版本变更纳入同一 commit（通过 amend 或新 commit）
+
+这确保用户通过 `npx` 拿到的始终是最新版本。
