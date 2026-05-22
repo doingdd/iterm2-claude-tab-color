@@ -2,7 +2,21 @@
   "name": "burn-ai",
   "version": "0.1.0",
   "description": "Local burn-rate monitor for Claude Code and Codex coding plans.",
+  "author": "BurnKit",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hanzhangzzz/burnkit.git",
+    "directory": "tools/burn-ai"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "coding-plan",
+    "usage-monitor",
+    "swiftbar",
+    "burn-rate"
+  ],
   "type": "module",
   "bin": {
     "burn-ai": "./dist/cli.js"
@@ -10,8 +24,7 @@
   "files": [
     "assets",
     "dist",
-    "README.md",
-    "plan.md"
+    "README.md"
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
