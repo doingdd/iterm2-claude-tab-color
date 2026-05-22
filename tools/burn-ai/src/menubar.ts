@@ -155,6 +155,30 @@ function appCliPath(paths: RuntimePaths) {
   return path.join(paths.stateDir, "app", "dist", "cli.js");
 }
 
+const COMPACT_MODE_FILE = "compact-mode";
+
+function compactModeFilePath() {
+  return path.join(buildPaths().stateDir, COMPACT_MODE_FILE);
+}
+
+export function readCompactMode(): boolean {
+  try {
+    return fs.existsSync(compactModeFilePath());
+  } catch {
+    return false;
+  }
+}
+
+export function toggleCompactMode(): boolean {
+  const filePath = compactModeFilePath();
+  if (fs.existsSync(filePath)) {
+    fs.rmSync(filePath, { force: true });
+    return false;
+  }
+  fs.writeFileSync(filePath, "");
+  return true;
+}
+
 function configuredSwiftBarPluginDir(paths: RuntimePaths) {
   try {
     const configured = execFileSync("defaults", ["read", "com.ameba.SwiftBar", "PluginDirectory"], {
@@ -469,13 +493,25 @@ function issueLabel(code: string) {
 }
 
 export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapshot()) {
+  const compact = readCompactMode();
   const providers = titleProviders(snapshot);
   const title = providers.map(titleSegment).join(` ${TITLE_SEPARATOR} `);
+  const toggleParams = {
+    bash: process.execPath,
+    param1: appCliPath(buildPaths()),
+    param2: "menubar",
+    param3: "toggle-compact",
+    terminal: false,
+    refresh: true,
+    color: TEXT_COLOR,
+    sfimage: compact ? "rectangle.expand.vertical" : "rectangle.compress.vertical",
+  };
   if (!title) {
     return [
       line("Burn AI  No Usage", { sfimage: "flame.fill", sfcolor: RAW_COLOR }),
       "---",
       line("No provider usage available", { color: MUTED_COLOR }),
+      line(compact ? "Expand" : "Collapse", toggleParams),
       line("Refresh now", { refresh: true, color: TEXT_COLOR, sfimage: "arrow.clockwise" }),
     ].join("\n");
   }
@@ -486,7 +522,14 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
     ?? "RAW";
   const titleImage = titleImageValue(providers);
   const lines = [
-    titleImage
+    compact
+      ? line("", {
+        sfimage: "flame.fill",
+        sfcolor: STATE_COLOR[topState],
+        dropdown: false,
+        tooltip: title,
+      })
+      : titleImage
       ? line("", {
         image: titleImage.image,
         width: titleImage.width,
@@ -566,6 +609,7 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
   if (snapshot.issues.length > 0) {
     lines.push("---");
   }
+  lines.push(line(compact ? "Expand" : "Collapse", toggleParams));
   lines.push(line("Refresh now", {
     refresh: true,
     color: TEXT_COLOR,

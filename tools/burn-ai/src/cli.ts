@@ -6,7 +6,7 @@ import { formatStatusRows, formatAnalysisDetail, formatIssues, formatProviderMet
 import { loadDisplayStatusSnapshot, collectStatusSnapshot } from "./runtime.js";
 import { runDaemonOnce } from "./daemon.js";
 import { doctorHasFailures, formatDoctor, runDoctor } from "./doctor.js";
-import { installMenuBar, renderMenuBar, uninstallMenuBar } from "./menubar.js";
+import { installMenuBar, renderMenuBar, uninstallMenuBar, toggleCompactMode } from "./menubar.js";
 import { buildPaths } from "./paths.js";
 import { maybePromptForStar } from "./star.js";
 
@@ -25,6 +25,7 @@ Usage:
   burn-ai menubar render
   burn-ai menubar install [--dry-run]
   burn-ai menubar uninstall [--dry-run]
+  burn-ai menubar toggle-compact
   burn-ai ingest claude-statusline
   burn-ai daemon [--once] [--dry-run]
 `);
@@ -111,6 +112,12 @@ async function main() {
 
     if (command === "menubar" && subcommand === "uninstall") {
       console.log(uninstallMenuBar({ dryRun }).join("\n"));
+      return;
+    }
+
+    if (command === "menubar" && subcommand === "toggle-compact") {
+      const isCompact = toggleCompactMode();
+      console.log(isCompact ? "Compact" : "Expanded");
       return;
     }
 

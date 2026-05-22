@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderMenuBar, swiftBarStatusItemVisibilityKeys } from "../dist/menubar.js";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { renderMenuBar, swiftBarStatusItemVisibilityKeys, readCompactMode, toggleCompactMode } from "../dist/menubar.js";
 
 const codexProvider = {
   usage: {
@@ -148,4 +151,45 @@ test("swiftBarStatusItemVisibilityKeys finds hidden status item cache keys", () 
     "NSStatusItem Visible Item-0",
     "NSStatusItem Visible Item-1",
   ]);
+});
+
+test("toggleCompactMode creates and removes compact mode file", () => {
+  const compactFile = path.join(os.homedir(), ".burn-ai", "compact-mode");
+  // Ensure clean state
+  try { fs.rmSync(compactFile, { force: true }); } catch {}
+  assert.equal(readCompactMode(), false);
+
+  const firstToggle = toggleCompactMode();
+  assert.equal(firstToggle, true);
+  assert.equal(readCompactMode(), true);
+  assert.ok(fs.existsSync(compactFile));
+
+  const secondToggle = toggleCompactMode();
+  assert.equal(secondToggle, false);
+  assert.equal(readCompactMode(), false);
+  assert.ok(!fs.existsSync(compactFile));
+});
+
+test("renderMenuBar shows Collapse toggle in full mode", () => {
+  const output = renderMenuBar(snapshot);
+  assert.match(output, /Collapse \| bash=.* param1=.* param2=menubar param3=toggle-compact terminal=false refresh=true/);
+  assert.doesNotMatch(output, /Expand \| bash=.* param1=.* param2=menubar param3=toggle-compact/);
+});
+
+test("renderMenuBar shows Expand toggle in compact mode", () => {
+  // Enable compact mode
+  toggleCompactMode();
+  try {
+    assert.equal(readCompactMode(), true);
+    const output = renderMenuBar(snapshot);
+    assert.match(output, /Expand \| bash=.* param1=.* param2=menubar param3=toggle-compact terminal=false refresh=true/);
+    assert.doesNotMatch(output, /Collapse \| bash=.* param1=.* param2=menubar param3=toggle-compact/);
+    // Compact title should have sfimage=flame.fill without image= or wide text
+    const titleLine = output.split("\n")[0];
+    assert.match(titleLine, /sfimage=flame\.fill/);
+    assert.doesNotMatch(titleLine, /image=[A-Za-z0-9+/=]+,[A-Za-z0-9+/=]+/);
+  } finally {
+    // Restore full mode
+    toggleCompactMode();
+  }
 });
