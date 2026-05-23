@@ -89,6 +89,63 @@ install_c_shim() {
     esac
 }
 
+install_settings() {
+    local settings_file="$HOME/.claude/settings-c.json"
+    local auth_helper="$SCRIPT_DIR/router-auth-helper.sh"
+
+    if [ -f "$settings_file" ]; then
+        ok "Claude settings already exists: $settings_file"
+        return 0
+    fi
+
+    if [ ! -f "$auth_helper" ]; then
+        warn "apiKeyHelper script not found: $auth_helper"
+        return 0
+    fi
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        log "[dry-run] would create $settings_file with apiKeyHelper: $auth_helper"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$settings_file")"
+    printf '{"apiKeyHelper": "%s"}\n' "$auth_helper" > "$settings_file"
+    ok "created Claude settings: $settings_file"
+}
+
+ensure_shim_dir_in_path() {
+    local shim_dir="${BURNKIT_C_SHIM_DIR:-$HOME/.local/bin}"
+
+    case ":${PATH}:" in
+        *":$shim_dir:"*) return 0 ;;
+    esac
+
+    local profile=""
+    if [ "${SHELL:-}" = */zsh ]; then
+        profile="$HOME/.zshrc"
+    elif [ "${SHELL:-}" = */bash ]; then
+        profile="$HOME/.bashrc"
+    fi
+
+    if [ -z "$profile" ] || [ ! -f "$profile" ]; then
+        warn "add $shim_dir to PATH manually: export PATH=\"$shim_dir:\$PATH\""
+        return 0
+    fi
+
+    if grep -q "$shim_dir" "$profile" 2>/dev/null; then
+        return 0
+    fi
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        log "[dry-run] would add $shim_dir to PATH in $profile"
+        return 0
+    fi
+
+    printf '\nexport PATH="%s:$PATH"\n' "$shim_dir" >> "$profile"
+    ok "added $shim_dir to PATH in $profile"
+    warn "run 'source $profile' or open a new terminal to update PATH"
+}
+
 main() {
     parse_args "$@"
 
@@ -110,6 +167,8 @@ main() {
     fi
 
     install_c_shim
+    install_settings
+    ensure_shim_dir_in_path
 }
 
 main "$@"

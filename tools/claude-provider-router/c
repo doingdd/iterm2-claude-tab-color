@@ -7,7 +7,13 @@
 #   c s                             # 显示配置文件
 #
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+_C_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$_C_SOURCE" ]; do
+  _C_DIR="$(cd "$(dirname "$_C_SOURCE")" && pwd)"
+  _C_SOURCE="$(readlink "$_C_SOURCE")"
+  [[ "$_C_SOURCE" != /* ]] && _C_SOURCE="$_C_DIR/$_C_SOURCE"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_C_SOURCE")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/config.env"
 ROUTER_SCRIPT="${SCRIPT_DIR}/router.py"
 C_SETTINGS="$HOME/.claude/settings-c.json"
@@ -26,6 +32,16 @@ NC='\033[0m'
 die() {
     echo -e "${RED}错误: $1${NC}" >&2
     exit 1
+}
+
+# 确保 settings-c.json 存在（apiKeyHelper 路由必需）
+ensure_settings() {
+    if [[ ! -f "$C_SETTINGS" ]]; then
+        local auth_helper="$SCRIPT_DIR/router-auth-helper.sh"
+        mkdir -p "$(dirname "$C_SETTINGS")"
+        printf '{"apiKeyHelper": "%s"}\n' "$auth_helper" > "$C_SETTINGS"
+        echo -e "${GREEN}已创建 Claude 设置: $C_SETTINGS${NC}"
+    fi
 }
 
 # 检查配置文件是否存在
@@ -206,6 +222,7 @@ start_single() {
     shift
 
     check_config
+    ensure_settings
 
     local base_url
     local auth_token
@@ -281,6 +298,7 @@ start_team() {
     shift 2
 
     check_config
+    ensure_settings
 
     # 读取 leader 配置
     local leader_url leader_token leader_compact leader_model leader_effort

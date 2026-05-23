@@ -29,12 +29,19 @@ That is the harness entrance.
 ## Install
 
 ```bash
+npm install -g burnkit
+burnkit install all
+```
+
+Or run without installing:
+
+```bash
 npx burnkit install all
 ```
 
 ![burnkit install all --dry-run](assets/demo-install.gif)
 
-Or from source:
+From source:
 
 ```bash
 git clone https://github.com/hanzhangzzz/burnkit.git
@@ -45,7 +52,7 @@ bin/burnkit install all
 Then edit your provider config:
 
 ```bash
-$EDITOR tools/claude-provider-router/config.env
+$EDITOR $(dirname $(readlink -f ~/.local/bin/c))/config.env
 ```
 
 The provider template lives at `tools/claude-provider-router/config.env.example`.
