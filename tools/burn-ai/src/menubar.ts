@@ -746,4 +746,3 @@ export function uninstallMenuBar(options: { dryRun?: boolean } = {}) {
   fs.rmSync(plugin.file, { force: true });
   return [`Removed SwiftBar plugin: ${plugin.file}`];
 }
-// hook-test
