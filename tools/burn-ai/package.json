@@ -1,6 +1,6 @@
 {
   "name": "burn-ai",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local burn-rate monitor for Claude Code and Codex coding plans.",
   "author": "BurnKit",
   "license": "MIT",

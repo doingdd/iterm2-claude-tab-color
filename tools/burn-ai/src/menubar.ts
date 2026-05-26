@@ -25,6 +25,7 @@ const PROVIDER_ICON_ASSET: Record<string, string> = {
   codex: "codex-openai-official.png",
   glm: "glm-zhipu-official.png",
   deepseek: "deepseek-official.png",
+  minimax: "minimax-official.png",
 };
 
 const PROVIDER_ICON_FALLBACK: Record<string, string> = {
@@ -32,6 +33,7 @@ const PROVIDER_ICON_FALLBACK: Record<string, string> = {
   codex: "curlybraces.square.fill",
   glm: "cpu",
   deepseek: "bubble.left.and.bubble.right",
+  minimax: "waveform.path.ecg",
 };
 
 const TITLE_ICON_ASSET = "provider-icons-official.png";
@@ -59,7 +61,7 @@ const STATE_PRIORITY: Record<BurnState, number> = {
 const TEXT_COLOR = "#111827,#F9FAFB";
 const MUTED_COLOR = "#6B7280,#A1A1AA";
 const ROW_FONT = "Menlo";
-const TITLE_PROVIDER_ORDER = ["codex", "claude", "glm", "deepseek"];
+const TITLE_PROVIDER_ORDER = ["codex", "claude", "glm", "deepseek", "minimax"];
 const TITLE_SEPARATOR = "│";
 const METER_WIDTH = 12;
 const ASSET_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "assets");
@@ -483,6 +485,9 @@ function issueLabel(code: string) {
   if (code === "DEEPSEEK_API_KEY_MISSING") {
     return "DeepSeek API key not set";
   }
+  if (code === "MINIMAX_API_KEY_MISSING") {
+    return "MiniMax API key not set";
+  }
   if (code === "USAGE_STALE") {
     return "Usage data is stale";
   }
@@ -632,9 +637,6 @@ function pluginScript(paths: RuntimePaths) {
 // <swiftbar.hideDisablePlugin>true</swiftbar.hideDisablePlugin>
 // <swiftbar.refreshOnOpen>true</swiftbar.refreshOnOpen>
 const { spawnSync } = require("node:child_process");
-spawnSync(${JSON.stringify(process.execPath)}, [${JSON.stringify(appCliPath(paths))}, "daemon", "--once"], {
-  encoding: "utf8",
-});
 const result = spawnSync(${JSON.stringify(process.execPath)}, [${JSON.stringify(appCliPath(paths))}, "menubar", "render"], {
   encoding: "utf8",
 });

@@ -66,7 +66,7 @@ export function estimateConversionRate(samples: ProviderUsage[]): number | null 
 }
 
 function messageForState(provider: ProviderId, state: BurnState, fiveUsed?: number, target?: { min: number; max: number }) {
-  const label = provider === "claude" ? "Claude" : provider === "glm" ? "GLM" : provider === "deepseek" ? "DeepSeek" : "Codex";
+  const label = provider === "claude" ? "Claude" : provider === "glm" ? "GLM" : provider === "deepseek" ? "DeepSeek" : provider === "minimax" ? "MiniMax" : "Codex";
   if (state === "LIMIT_RISK") {
     return `${label} usage is close to a plan limit. Consider switching provider or lowering intensity.`;
   }

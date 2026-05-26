@@ -12,6 +12,7 @@ export function buildPaths(homeDir = os.homedir()): RuntimePaths {
     codexDir: path.join(stateDir, "codex"),
     glmDir: path.join(stateDir, "glm"),
     deepseekDir: path.join(stateDir, "deepseek"),
+    minimaxDir: path.join(stateDir, "minimax"),
     notificationStateFile: path.join(stateDir, "notifications.json"),
     statusFile: path.join(stateDir, "status.json"),
     starPromptFile: path.join(stateDir, "star-prompt.json"),
@@ -37,6 +38,7 @@ export function installedAssetPath(homeDir: string, assetName: string) {
 function providerDir(paths: RuntimePaths, provider: ProviderId): string {
   if (provider === "glm") return paths.glmDir;
   if (provider === "deepseek") return paths.deepseekDir;
+  if (provider === "minimax") return paths.minimaxDir;
   if (provider === "claude") return paths.claudeDir;
   return paths.codexDir;
 }

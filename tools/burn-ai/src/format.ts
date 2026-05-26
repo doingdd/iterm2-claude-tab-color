@@ -22,6 +22,7 @@ function providerLabel(provider: string) {
   if (provider === "claude") return "Claude";
   if (provider === "glm") return "GLM";
   if (provider === "deepseek") return "DeepSeek";
+  if (provider === "minimax") return "MiniMax";
   return "Codex";
 }
 

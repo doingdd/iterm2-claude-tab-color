@@ -5,6 +5,7 @@ import { collectCodexUsage } from "./codex.js";
 import { readJsonFile } from "./fs-util.js";
 import { collectGlmUsage } from "./glm.js";
 import { collectDeepseekUsage } from "./deepseek.js";
+import { collectMinimaxUsage } from "./minimax.js";
 import { buildPaths } from "./paths.js";
 import { loadLatestUsage, loadSamples, saveUsage } from "./store.js";
 import { BurnAnalysis, BurnProfile, ProviderUsage, RuntimePaths, StatusIssue, StatusSnapshot } from "./types.js";
@@ -16,7 +17,7 @@ import {
 } from "./status.js";
 
 export function loadFixtureUsages(fixturesDir: string): ProviderUsage[] {
-  const providers = ["claude", "codex", "glm", "deepseek"] as const;
+  const providers = ["claude", "codex", "glm", "deepseek", "minimax"] as const;
   return providers
     .map((provider) => readJsonFile<ProviderUsage>(path.join(fixturesDir, provider, "latest.json")))
     .filter((item): item is ProviderUsage => item !== null);
@@ -141,6 +142,42 @@ export async function collectLocalState(options: { fixtures?: boolean } = {}): P
             provider: "deepseek",
             severity: "error",
             code: "DEEPSEEK_USAGE_MISSING",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+  }
+
+  if (monitored.has("minimax")) {
+    const minimaxConfig = config.minimax;
+    if (!minimaxConfig?.apiKey) {
+      issues.push({
+        provider: "minimax",
+        severity: "warning",
+        code: "MINIMAX_API_KEY_MISSING",
+        message: "MiniMax API key not configured. Edit ~/.burn-ai/config.json to set minimax.apiKey.",
+      });
+    } else {
+      try {
+        const minimax = await collectMinimaxUsage(minimaxConfig);
+        saveUsage(minimax, paths);
+        usages.push(minimax);
+      } catch (error) {
+        const cached = loadLatestUsage("minimax", paths);
+        if (cached) {
+          usages.push(cached);
+          issues.push({
+            provider: "minimax",
+            severity: "warning",
+            code: "MINIMAX_USING_CACHE",
+            message: `MiniMax live usage unavailable; using cached usage from ${cached.observedAt}. ${error instanceof Error ? error.message : String(error)}`,
+          });
+        } else {
+          issues.push({
+            provider: "minimax",
+            severity: "error",
+            code: "MINIMAX_USAGE_MISSING",
             message: error instanceof Error ? error.message : String(error),
           });
         }

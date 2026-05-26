@@ -167,6 +167,34 @@ export function runDoctor(options: { dryRun?: boolean } = {}): DoctorCheck[] {
     });
   }
 
+  if (monitored.has("minimax")) {
+    const hasApiKey = Boolean(config.minimax?.apiKey);
+    checks.push({
+      name: "MiniMax API key",
+      ok: hasApiKey,
+      message: hasApiKey
+        ? `configured (region: ${config.minimax?.region ?? "cn"})`
+        : "not set; edit ~/.burn-ai/config.json to set minimax.apiKey",
+    });
+
+    const minimaxLatest = providerLatestPath(paths, "minimax");
+    checks.push({
+      name: "MiniMax usage cache",
+      ok: !hasApiKey || isFile(minimaxLatest),
+      message: isFile(minimaxLatest)
+        ? `found ${minimaxLatest}`
+        : hasApiKey
+          ? `missing ${minimaxLatest}; run burn-ai daemon --once to collect`
+          : "skipped (API key not set)",
+    });
+  } else {
+    checks.push({
+      name: "MiniMax",
+      ok: true,
+      message: "disabled by config",
+    });
+  }
+
   const backend = notificationBackend();
   const notificationOk = backend !== "unsupported" && backend !== "burnt-toast";
   checks.push({

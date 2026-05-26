@@ -1,4 +1,4 @@
-export type ProviderId = "claude" | "codex" | "glm" | "deepseek";
+export type ProviderId = "claude" | "codex" | "glm" | "deepseek" | "minimax";
 export type WindowName = "five_hour" | "seven_day";
 export type BurnProfile = "low" | "high";
 export type BurnState =
@@ -59,6 +59,11 @@ export interface DeepseekConfig {
   apiKey?: string;
 }
 
+export interface MinimaxConfig {
+  region?: "cn" | "global";
+  apiKey?: string;
+}
+
 export interface RuntimePaths {
   homeDir: string;
   stateDir: string;
@@ -67,6 +72,7 @@ export interface RuntimePaths {
   codexDir: string;
   glmDir: string;
   deepseekDir: string;
+  minimaxDir: string;
   notificationStateFile: string;
   statusFile: string;
   starPromptFile: string;
@@ -108,4 +114,5 @@ export interface BurnConfig {
   providers: ProviderId[];
   glm?: GlmConfig;
   deepseek?: DeepseekConfig;
+  minimax?: MinimaxConfig;
 }
