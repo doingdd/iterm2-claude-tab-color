@@ -2,6 +2,12 @@
 
 > Overclock the human. Then build the harness.
 
+[![npm](https://img.shields.io/npm/v/burnkit?color=cb3837&logo=npm&label=burnkit)](https://www.npmjs.com/package/burnkit)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg?logo=apple)](#install)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-ready-d97757)](#what-you-get)
+[![Codex](https://img.shields.io/badge/Codex-ready-412991?logo=openai)](#what-you-get)
+
 [中文说明](README.zh-CN.md)
 
 BurnKit is a three-tool kit for developers running Claude Code and Codex in parallel. It routes work to the right provider, colors idle terminal tabs when AI is waiting for you, and tracks plan burn before expensive windows quietly evaporate.

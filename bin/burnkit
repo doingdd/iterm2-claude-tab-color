@@ -22,27 +22,27 @@ usage() {
 BurnKit - AI coding workflow pressure toolkit
 
 Usage:
-  bin/burnkit doctor
-  bin/burnkit install router
-  bin/burnkit install tabs [tab-color options...]
-  bin/burnkit install burn [burn-ai install options...]
-  bin/burnkit install all
-  bin/burnkit uninstall tabs [tab-color options...]
-  bin/burnkit uninstall burn [--dry-run]
-  bin/burnkit uninstall all [--dry-run]
-  bin/burnkit router [c args...]
-  bin/burnkit burn [burn-ai args...]
-  bin/burnkit status [burn-ai status options...]
+  burnkit doctor
+  burnkit install router
+  burnkit install tabs [tab-color options...]
+  burnkit install burn [burn-ai install options...]
+  burnkit install all
+  burnkit uninstall tabs [tab-color options...]
+  burnkit uninstall burn [--dry-run]
+  burnkit uninstall all [--dry-run]
+  burnkit router [c args...]
+  burnkit burn [burn-ai args...]
+  burnkit status [burn-ai status options...]
 
 Examples:
-  bin/burnkit doctor
-  bin/burnkit install router
-  bin/burnkit install tabs --dry-run --skip-python-check
-  bin/burnkit install tabs
-  bin/burnkit install burn --dry-run
+  burnkit doctor
+  burnkit install router
+  burnkit install tabs --dry-run --skip-python-check
+  burnkit install tabs
+  burnkit install burn --dry-run
   c 0
   c team 2 0
-  bin/burnkit status --refresh
+  burnkit status --refresh
 EOF
 }
 
@@ -119,7 +119,7 @@ ensure_burn_ai_ready() {
 
 run_burn_ai() {
     ensure_burn_ai_ready 0
-    (cd "$BURN_AI_DIR" && npx --no-install burn-ai "$@")
+    node "$BURN_AI_DIR/dist/cli.js" "$@"
 }
 
 install_burn() {
@@ -127,11 +127,11 @@ install_burn() {
         section "Burn AI dry run"
         printf '[dry-run] would run npm install in %s when dependencies are missing\n' "$BURN_AI_DIR"
         printf '[dry-run] would run npm run build in %s before local install\n' "$BURN_AI_DIR"
-        printf '[dry-run] would run npx --no-install burn-ai install %s\n' "$*"
+        printf '[dry-run] would run node %s/dist/cli.js install %s\n' "$BURN_AI_DIR" "$*"
         return 0
     fi
     ensure_burn_ai_ready 1
-    (cd "$BURN_AI_DIR" && npx --no-install burn-ai install "$@")
+    node "$BURN_AI_DIR/dist/cli.js" install "$@"
 }
 
 install_cli_shim() {
@@ -185,7 +185,7 @@ uninstall_tabs() {
 
 uninstall_burn() {
     ensure_burn_ai_ready 0
-    (cd "$BURN_AI_DIR" && npx --no-install burn-ai uninstall "$@")
+    node "$BURN_AI_DIR/dist/cli.js" uninstall "$@"
 }
 
 uninstall_cli_shim() {
@@ -226,7 +226,7 @@ doctor() {
     if [ -f "$ROUTER_DIR/config.env" ]; then
         ok "config exists: $ROUTER_DIR/config.env"
     else
-        warn "config missing; run: bin/burnkit install router"
+        warn "config missing; run: burnkit install router"
     fi
     if [ -x "$ROUTER_INSTALLER" ]; then
         ok "installer exists: $ROUTER_INSTALLER"
@@ -264,11 +264,11 @@ doctor() {
     fi
     if [ -x "$BURN_AI_DIR/dist/cli.js" ]; then
         ok "burn-ai is built: $BURN_AI_DIR/dist/cli.js"
-        if ! (cd "$BURN_AI_DIR" && npx --no-install burn-ai doctor --dry-run); then
+        if ! node "$BURN_AI_DIR/dist/cli.js" doctor --dry-run; then
             fail "burn-ai doctor reported missing required checks"
         fi
     else
-        warn "burn-ai is not built; run: bin/burnkit install burn --dry-run"
+        warn "burn-ai is not built; run: burnkit install burn --dry-run"
     fi
 
     [ "$BURNKIT_DOCTOR_FAILURES" -eq 0 ]

@@ -1,7 +1,26 @@
 {
   "name": "burnkit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI coding workflow pressure toolkit — Claude Provider Router, iTerm2 Tab Color, Burn AI",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "claude",
+    "openai",
+    "anthropic",
+    "ai-coding",
+    "ai-agents",
+    "llm",
+    "developer-tools",
+    "cli",
+    "iterm2",
+    "swiftbar",
+    "macos",
+    "terminal",
+    "productivity",
+    "provider-router",
+    "usage-tracking"
+  ],
   "license": "MIT",
   "bin": {
     "burnkit": "./bin/burnkit"
