@@ -1,6 +1,6 @@
 {
   "name": "burnkit",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "AI coding workflow pressure toolkit — Claude Provider Router, iTerm2 Tab Color, Burn AI",
   "keywords": [
     "claude-code",
