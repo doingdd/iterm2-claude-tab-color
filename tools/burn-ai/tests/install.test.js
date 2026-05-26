@@ -105,7 +105,10 @@ test("uninstall restores wrapped custom status line command", () => {
   });
 
   const originalHome = process.env.HOME;
+  const originalPluginDir = process.env.BURN_AI_PLUGIN_DIR;
   process.env.HOME = home;
+  // Sandbox the SwiftBar plugin dir so uninstall can't touch the real menubar plugin.
+  process.env.BURN_AI_PLUGIN_DIR = path.join(home, "swiftbar");
   try {
     const messages = uninstall({ dryRun: false });
     const settings = JSON.parse(fs.readFileSync(paths.claudeSettingsFile, "utf8"));
@@ -116,6 +119,11 @@ test("uninstall restores wrapped custom status line command", () => {
       delete process.env.HOME;
     } else {
       process.env.HOME = originalHome;
+    }
+    if (originalPluginDir === undefined) {
+      delete process.env.BURN_AI_PLUGIN_DIR;
+    } else {
+      process.env.BURN_AI_PLUGIN_DIR = originalPluginDir;
     }
   }
 });

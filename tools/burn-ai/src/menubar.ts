@@ -182,6 +182,13 @@ export function toggleCompactMode(): boolean {
 }
 
 function configuredSwiftBarPluginDir(paths: RuntimePaths) {
+  // Isolation escape hatch: an explicit BURN_AI_PLUGIN_DIR always wins and never
+  // reads the global SwiftBar config. Tests set this to a temp dir so running the
+  // suite (which exercises uninstall) can never delete the developer's live plugin.
+  const override = process.env.BURN_AI_PLUGIN_DIR?.trim();
+  if (override) {
+    return override;
+  }
   try {
     const configured = execFileSync("defaults", ["read", "com.ameba.SwiftBar", "PluginDirectory"], {
       encoding: "utf8",
