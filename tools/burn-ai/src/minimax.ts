@@ -20,10 +20,26 @@ interface MinimaxModelRemain {
 
 interface MinimaxQuotaResponse {
   model_remains: MinimaxModelRemain[];
+  category_remains?: MinimaxCategoryRemain[];
   base_resp: {
     status_code: number;
     status_msg: string;
   };
+}
+
+interface MinimaxCategoryRemain {
+  start_time: number;
+  end_time: number;
+  remains_time: number;
+  current_interval_total_count: number;
+  current_interval_usage_count: number;
+  current_weekly_total_count: number;
+  current_weekly_usage_count: number;
+  weekly_start_time: number;
+  weekly_end_time: number;
+  weekly_remains_time: number;
+  category: string;
+  display_name: string;
 }
 
 function baseUrl(config: MinimaxConfig): string {
@@ -60,34 +76,49 @@ export function usageFromMinimaxQuota(
   options: { observedAt?: string; source: string },
 ): ProviderUsage | null {
   const models = quota.model_remains;
+  const categories = quota.category_remains;
   if (!models || models.length === 0) {
     return null;
   }
 
   const primary = models[0];
 
-  const fiveHourPercent = primary.current_interval_total_count > 0
-    ? (primary.current_interval_usage_count / primary.current_interval_total_count) * 100
-    : 0;
+  let fiveHourPercent = 0;
+  let fiveHourReset = primary.end_time;
+  let weeklyPercent = 0;
+  let weeklyReset = primary.weekly_end_time;
 
-  const weeklyPercent = primary.current_weekly_total_count > 0
-    ? (primary.current_weekly_usage_count / primary.current_weekly_total_count) * 100
-    : 0;
+  if (categories && categories.length > 0) {
+    const textGen = categories.find((c) => c.category === "text_generation");
+    if (textGen) {
+      fiveHourPercent = textGen.current_interval_total_count > 0
+        ? (textGen.current_interval_usage_count / textGen.current_interval_total_count) * 100
+        : 0;
+      fiveHourReset = textGen.end_time;
+      weeklyPercent = textGen.current_weekly_total_count > 0
+        ? (textGen.current_weekly_usage_count / textGen.current_weekly_total_count) * 100
+        : fiveHourPercent;
+      weeklyReset = textGen.weekly_end_time;
+    }
+  } else {
+    fiveHourPercent = primary.current_interval_total_count > 0
+      ? (primary.current_interval_usage_count / primary.current_interval_total_count) * 100
+      : 0;
+
+    weeklyPercent = primary.current_weekly_total_count > 0
+      ? (primary.current_weekly_usage_count / primary.current_weekly_total_count) * 100
+      : fiveHourPercent;
+  }
 
   const fiveHour = normalizeWindow("five_hour", {
     used_percent: fiveHourPercent,
-    resets_at: new Date(primary.end_time).toISOString(),
+    resets_at: new Date(fiveHourReset).toISOString(),
   }, 300);
 
-  const sevenDay = primary.current_weekly_total_count > 0
-    ? normalizeWindow("seven_day", {
-      used_percent: weeklyPercent,
-      resets_at: new Date(primary.weekly_end_time).toISOString(),
-    }, 10080)
-    : normalizeWindow("seven_day", {
-      used_percent: fiveHourPercent,
-      resets_at: new Date(primary.end_time).toISOString(),
-    }, 10080);
+  const sevenDay = normalizeWindow("seven_day", {
+    used_percent: weeklyPercent,
+    resets_at: new Date(weeklyReset).toISOString(),
+  }, 10080);
 
   if (!fiveHour || !sevenDay) {
     return null;
