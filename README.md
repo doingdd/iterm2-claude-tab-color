@@ -1,4 +1,4 @@
-# BurnKit
+# BurnKit — Claude Provider Router + iTerm2 Tab Color + Burn AI
 
 > Overclock the human. Then build the harness.
 
@@ -10,7 +10,7 @@
 
 [中文说明](README.zh-CN.md)
 
-BurnKit is a three-tool kit for developers running Claude Code and Codex in parallel. It routes work to the right provider, colors idle terminal tabs when AI is waiting for you, and tracks plan burn before expensive windows quietly evaporate.
+BurnKit routes AI work to the right provider, colors idle tabs when AI waits, and tracks plan burn before expensive windows evaporate. Three tools for developers running Claude Code and Codex in parallel.
 
 Chinese spirit name: `卷王三件套`.
 
@@ -24,11 +24,45 @@ That is the harness entrance.
 
 ## What You Get
 
-| Tool | Effect | Main command | What it does |
-|------|--------|---------------|--------------|
-| Claude Provider Router | <img src="assets/launch/c-router-launch.gif" alt="Claude Provider Router switches Claude Code model lanes and splits team traffic" width="320"> | `c 0`<br>`c team 2 0` | Starts Claude Code through numbered providers and routes Agent Team leader/teammate traffic. |
-| iTerm2 Tab Color | <img src="assets/demo-tab-color.gif" alt="iTerm2 tab colors show green, yellow, and red idle indicators" width="320"> | `burnkit install tabs` | Colors inactive Claude Code / Codex tabs when they are waiting for you. |
-| Burn AI | <img src="assets/menubar-screenshot-basic.png" alt="Burn AI menubar strip showing 5 provider icons with usage bars" width="320"> | `burnkit status --refresh` | Tracks local Claude Code / Codex plan usage and burn pace across all providers. |
+### Claude Provider Router — `c` command
+
+Switch between Claude / Codex providers without editing config. Split Agent Team traffic across providers.
+
+```
+c 0              # Use provider 0 (e.g., Claude)
+c team 2 0       # Team mode: leader on provider 2, teammate on 0
+```
+
+<img src="assets/launch/c-router-launch.gif" alt="Claude Provider Router switches Claude Code model lanes" width="320">
+
+### iTerm2 Tab Color — Idle tab signaling
+
+Green/Yellow/Red tabs when AI waits. Only inactive tabs get colored—notifications point at what you're missing.
+
+```
+burnkit install tabs
+```
+
+| Color | Meaning |
+|-------|---------|
+| Green | AI just finished, collect now |
+| Yellow | Waited a while, parallelism leaking |
+| Red | Waited too long, human late |
+| White | Active, processing, or clean |
+
+<img src="assets/demo-tab-color.gif" alt="iTerm2 tab colors show green, yellow, and red idle indicators" width="320">
+
+### Burn AI — Plan burn tracking
+
+Menu bar shows 5h/7d usage across all providers with colored progress bars. No login, reads local Claude Code / Codex data.
+
+```
+burnkit status --refresh
+```
+
+<img src="assets/menubar-screenshot-basic.png" alt="Burn AI menubar strip showing 5 provider icons with usage bars" width="320">
+
+> **Tip:** Menu bar crowded? Use [Dozer](https://github.com/Mortennn/Dozer) to hide icons and keep Burn AI front.
 
 > **Tip:** If your menu bar gets crowded, consider a free tool like [Dozer](https://github.com/Mortennn/Dozer) to hide less-used icons and keep the Burn AI menubar signal front and center.
 
@@ -47,23 +81,13 @@ npx burnkit install all
 
 ![burnkit install all --dry-run](assets/demo-install.gif)
 
-From source:
+Edit provider config (add tokens):
 
 ```bash
-git clone https://github.com/hanzhangzzz/burnkit.git
-cd burnkit
-bin/burnkit install all
+$EDITOR ~/.burnkit-router/config.env
 ```
 
-Then edit your provider config:
-
-```bash
-$EDITOR $(dirname $(readlink -f ~/.local/bin/c))/config.env
-```
-
-The provider template lives at `tools/claude-provider-router/config.env.example`.
-
-Run Claude Code through the short router command:
+Run Claude Code through provider:
 
 ```bash
 c 0
@@ -76,7 +100,7 @@ Check plan burn:
 burnkit status --refresh
 ```
 
-Uninstall everything:
+Uninstall:
 
 ```bash
 burnkit uninstall all
@@ -84,100 +108,40 @@ burnkit uninstall all
 
 ## Let Your Agent Install It
 
-Copy this into your AI coding agent and let it handle the install:
-
 ```text
-Install BurnKit for me in this repo.
-
-Rules:
-- First run `scripts/e2e-install-verify.sh --dry-run`.
-- Run `bin/burnkit doctor`.
-- Dry-run each BurnKit install target before any real install:
-  - `bin/burnkit install router --dry-run`
-  - `bin/burnkit install tabs --dry-run --skip-python-check`
-  - `bin/burnkit install burn --dry-run`
-- Do not overwrite `tools/claude-provider-router/config.env`. If it already exists, preserve it byte-for-byte.
-- Before real install, tell me exactly what files and system state will be changed, then wait for my explicit confirmation.
-- After I confirm, run the real install and verify it with `scripts/e2e-install-verify.sh --real`.
+Install BurnKit for me. Use `burnkit install all --dry-run` first, show me what changes, wait for confirmation, then run real install. Preserve ~/.burnkit-router/config.env if it exists.
 ```
-
-The important part: `config.env` contains provider tokens. A correct agent must preserve it if it already exists.
 
 ## The Loop It Creates
 
-```text
-1. Start more AI sessions.
-2. Watch idle tabs turn green, yellow, and red.
-3. Use Burn AI to see whether your 5h / 7d plan windows are being wasted.
-4. Hit the human scheduling limit.
-5. Start designing a real agent harness.
-```
+Start more AI sessions → Watch tabs turn green/yellow/red → See Burn AI wasting 5h/7d windows → Hit human scheduling limit → Build a real agent harness.
 
-This is the point. BurnKit is not a forever-babysitting tool. It is a pressure rig. It squeezes your idle time, your context switching, and your confidence that one human can keep ten agent sessions moving by hand.
+BurnKit is a pressure rig. It exposes hidden costs so the questions become architectural instead of motivational.
 
-At the limit, the useful questions stop being motivational and start being architectural:
-
-```text
-Why does it keep asking me?
-Why can't it decide the next step?
-Why am I still the human event loop?
-Why can't these sessions queue, split work, verify, and ship?
-```
-
-Exactly. You start harnessing.
-
-## Command Map
+## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `burnkit doctor` | Check local prerequisites and tool readiness |
-| `burnkit install router` | Run the router internal installer; create `config.env` from the template only when missing, and install the `c` shim |
-| `burnkit install tabs` | Install iTerm2 Tab Color through the unified BurnKit entrypoint |
-| `burnkit install burn` | Install/build Burn AI, then run `burn-ai install` |
-| `burnkit install all` | Install CLI shim, router, tab color, and Burn AI in order |
-| `burnkit uninstall all` | Uninstall tab color, Burn AI, and CLI shim |
-| `c 0` | Start Claude Code through provider config `0` |
-| `c team 2 0` | Start Agent Team routing: leader on `2`, teammate on `0` |
-| `burnkit router 0` | Long-form compatibility wrapper for `c 0` |
-| `burnkit burn doctor` | Forward to Burn AI CLI |
-| `burnkit status --refresh` | Refresh and print plan usage state |
-
-Each tool still owns its own runtime files, safety checks, and uninstall path.
-
-## Tab Pressure
-
-| Color | Meaning | Operator Signal |
-|-------|---------|-----------------|
-| Green | AI just finished and is waiting | Collect the result now |
-| Yellow | It has waited for a while | Your parallelism is leaking |
-| Red | It has waited too long | The machine is ready; the human is late |
-| White | Active tab, processing, or clean state | No attention needed here |
-
-Only inactive tabs get colored. The tab you are looking at stays white because notifications should point at what you are missing.
+| `burnkit doctor` | Check prerequisites and tool readiness |
+| `burnkit install all` | Install router, tabs, burn-ai |
+| `burnkit uninstall all` | Remove all tools |
+| `c 0` / `c 1` / `c 2` | Start Claude Code on provider N |
+| `c team 2 0` | Team mode: leader on 2, teammate on 0 |
+| `burnkit status --refresh` | Check plan burn |
 
 ## Repository Layout
 
-```text
-.
-├── bin/
-│   └── burnkit
-├── tools/
-│   ├── claude-provider-router/
-│   ├── iterm2-tab-color/
-│   └── burn-ai/
-├── assets/
-├── package.json
-├── AGENTS.md
-├── CLAUDE.md
-├── README.md
-└── README.zh-CN.md
+```
+bin/burnkit                          # CLI entry point
+tools/claude-provider-router/        # c command, config.env
+tools/iterm2-tab-color/              # Python daemon + shell hooks
+tools/burn-ai/                       # Node.js CLI + SwiftBar plugin
 ```
 
 ## Tool Docs
 
 - [Claude Provider Router](tools/claude-provider-router/README.md)
-- [iTerm2 Tab Color](tools/iterm2-tab-color/README.md)
-- [iTerm2 Tab Color Chinese README](tools/iterm2-tab-color/README.zh-CN.md)
+- [iTerm2 Tab Color](tools/iterm2-tab-color/README.md) · [中文](tools/iterm2-tab-color/README.zh-CN.md)
 - [Burn AI](tools/burn-ai/README.md)
 
 ## Safety Notes

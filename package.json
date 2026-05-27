@@ -9,17 +9,18 @@
     "openai",
     "anthropic",
     "ai-coding",
-    "ai-agents",
-    "llm",
     "developer-tools",
     "cli",
     "iterm2",
     "swiftbar",
     "macos",
     "terminal",
-    "productivity",
+    "c-router",
     "provider-router",
-    "usage-tracking"
+    "tab-color",
+    "burn-ai",
+    "claude-dev-tools",
+    "ai-usage"
   ],
   "license": "MIT",
   "bin": {
