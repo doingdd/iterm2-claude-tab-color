@@ -44,7 +44,7 @@ const TITLE_ICON_ASSET = "provider-icons-official.png";
 const ALERT_COLOR = "#D97757,#E8956E";
 const WARNING_COLOR = "#FF9F0A,#FFD60A";
 const OK_COLOR = "#248A3D,#30D158";
-const RAW_COLOR = "#6B7280,#8E8E93";
+const RAW_COLOR = "#248A3D,#30D158";
 
 const STATE_COLOR: Record<BurnState, string> = {
   RAW: RAW_COLOR,
