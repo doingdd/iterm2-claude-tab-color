@@ -84,7 +84,30 @@ npx burnkit install all
 Edit provider config (add tokens):
 
 ```bash
+# Claude / Codex routing
 $EDITOR ~/.burnkit-router/config.env
+
+# DeepSeek / GLM / MiniMax usage tracking
+$EDITOR ~/.burn-ai/config.json
+```
+
+Example `~/.burn-ai/config.json`:
+
+```json
+{
+  "providers": ["codex", "claude", "deepseek", "glm", "minimax"],
+  "deepseek": {
+    "apiKey": "your-deepseek-api-key"
+  },
+  "glm": {
+    "baseUrl": "https://open.bigmodel.cn",
+    "apiKey": "your-zhipu-api-key"
+  },
+  "minimax": {
+    "region": "cn",
+    "apiKey": "your-minimax-api-key"
+  }
+}
 ```
 
 Run Claude Code through provider:

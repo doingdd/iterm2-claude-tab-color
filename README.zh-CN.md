@@ -76,7 +76,30 @@ npx burnkit install all
 编辑 Provider 配置（添加 token）：
 
 ```bash
+# Claude / Codex 路由
 $EDITOR ~/.burnkit-router/config.env
+
+# DeepSeek / GLM / MiniMax 用量追踪
+$EDITOR ~/.burn-ai/config.json
+```
+
+`~/.burn-ai/config.json` 示例：
+
+```json
+{
+  "providers": ["codex", "claude", "deepseek", "glm", "minimax"],
+  "deepseek": {
+    "apiKey": "your-deepseek-api-key"
+  },
+  "glm": {
+    "baseUrl": "https://open.bigmodel.cn",
+    "apiKey": "your-zhipu-api-key"
+  },
+  "minimax": {
+    "region": "cn",
+    "apiKey": "your-minimax-api-key"
+  }
+}
 ```
 
 用 Provider 启动 Claude Code：
