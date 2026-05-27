@@ -28,7 +28,7 @@ That is the harness entrance.
 |------|--------|---------------|--------------|
 | Claude Provider Router | <img src="assets/launch/c-router-launch.gif" alt="Claude Provider Router switches Claude Code model lanes and splits team traffic" width="320"> | `c 0`<br>`c team 2 0` | Starts Claude Code through numbered providers and routes Agent Team leader/teammate traffic. |
 | iTerm2 Tab Color | <img src="assets/demo-tab-color.gif" alt="iTerm2 tab colors show green, yellow, and red idle indicators" width="320"> | `burnkit install tabs` | Colors inactive Claude Code / Codex tabs when they are waiting for you. |
-| Burn AI | <img src="assets/menubar-screenshot.png" alt="SwiftBar menubar shows Codex and Claude burn pace at a glance" width="320"> | `burnkit status --refresh` | Tracks local Claude Code / Codex plan usage and burn pace. |
+| Burn AI | <img src="assets/menubar-screenshot-basic.png" alt="Burn AI menubar strip showing 5 provider icons with usage bars" width="320"><br><img src="assets/menubar-screenshot.png" alt="Expanded dropdown showing per-provider usage, burn pace and targets" width="220"> | `burnkit status --refresh` | Tracks local Claude Code / Codex plan usage and burn pace across all providers. |
 
 > **Tip:** If your menu bar gets crowded, consider a free tool like [Dozer](https://github.com/Mortennn/Dozer) to hide less-used icons and keep the Burn AI menubar signal front and center.
 

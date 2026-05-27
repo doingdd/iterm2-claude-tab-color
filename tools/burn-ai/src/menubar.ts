@@ -23,9 +23,13 @@ const STATE_LABEL: Record<BurnState, string> = {
 const PROVIDER_ICON_ASSET: Record<string, string> = {
   claude: "claude-code-official.png",
   codex: "codex-openai-official.png",
-  glm: "glm-zhipu-official.png",
+  glm: "glm-zhipu-z.png",
   deepseek: "deepseek-official.png",
   minimax: "minimax-official.png",
+};
+
+const PROVIDER_ICON_DARK_ASSET: Record<string, string> = {
+  glm: "glm-zhipu-z-light.png",
 };
 
 const PROVIDER_ICON_FALLBACK: Record<string, string> = {
@@ -37,7 +41,7 @@ const PROVIDER_ICON_FALLBACK: Record<string, string> = {
 };
 
 const TITLE_ICON_ASSET = "provider-icons-official.png";
-const ALERT_COLOR = "#FF453A,#FF6961";
+const ALERT_COLOR = "#D97757,#E8956E";
 const WARNING_COLOR = "#FF9F0A,#FFD60A";
 const OK_COLOR = "#248A3D,#30D158";
 const RAW_COLOR = "#6B7280,#8E8E93";
@@ -71,72 +75,92 @@ const titleImageCache = new Map<string, { image: string; width: number; height: 
 
 const TITLE_IMAGE_SCRIPT = `
 ObjC.import('AppKit');
-ObjC.import('Foundation');
+ObjC.import('CoreGraphics');
 
-function hexColor(hex) {
-  const value = hex.replace('#', '');
-  const r = parseInt(value.slice(0, 2), 16) / 255;
-  const g = parseInt(value.slice(2, 4), 16) / 255;
-  const b = parseInt(value.slice(4, 6), 16) / 255;
-  return $.NSColor.colorWithSRGBRedGreenBlueAlpha(r, g, b, 1);
-}
+function drawImage(payload, variant, mode) {
+  var scale = payload.scale || 1;
+  var height = payload.height * scale;
+  var iconSize = payload.iconSize * scale;
+  var paddingX = payload.paddingX * scale;
+  var iconBarGap = payload.iconBarGap * scale;
+  var segmentGap = payload.segmentGap * scale;
+  var barWidth = payload.barWidth * scale;
+  var barHeight = payload.barHeight * scale;
+  var barGap = payload.barGap * scale;
+  var barRadius = payload.barRadius * scale;
+  var barMinFill = (payload.barMinFill || barRadius * 2) * scale;
+  var dividerW = 1 * scale;
 
-function drawImage(payload, variant) {
-  const scale = payload.scale || 1;
-  const height = payload.height * scale;
-  const fontSize = payload.fontSize * scale;
-  const iconSize = payload.iconSize * scale;
-  const paddingX = payload.paddingX * scale;
-  const iconTextGap = payload.iconTextGap * scale;
-  const segmentGap = payload.segmentGap * scale;
-  const attrs = $.NSMutableDictionary.alloc.init;
-  attrs.setObjectForKey($.NSFont.menuBarFontOfSize(fontSize), $.NSFontAttributeName);
-  attrs.setObjectForKey(hexColor(variant.textColor), $.NSForegroundColorAttributeName);
-
-  const dividerAttrs = $.NSMutableDictionary.alloc.init;
-  dividerAttrs.setObjectForKey($.NSFont.menuBarFontOfSize(fontSize), $.NSFontAttributeName);
-  dividerAttrs.setObjectForKey(hexColor(variant.dividerColor), $.NSForegroundColorAttributeName);
-
-  const dividerWidth = Math.ceil($(payload.divider).sizeWithAttributes(dividerAttrs).width);
-  let width = paddingX * 2;
-  payload.segments.forEach((segment, index) => {
-    if (index > 0) {
-      width += segmentGap + dividerWidth + segmentGap;
-    }
-    const hasIcon = Boolean(segment.iconPath);
-    width += (hasIcon ? iconSize + iconTextGap : 0) + Math.ceil($(segment.text).sizeWithAttributes(attrs).width);
+  var width = paddingX * 2;
+  payload.segments.forEach(function(seg, idx) {
+    if (idx > 0) width += segmentGap + dividerW + segmentGap;
+    width += (seg.iconPath ? iconSize + iconBarGap : 0) + barWidth;
   });
   width = Math.max(payload.minWidth * scale, width);
 
-  const rep = $.NSBitmapImageRep.alloc.initWithBitmapDataPlanesPixelsWidePixelsHighBitsPerSampleSamplesPerPixelHasAlphaIsPlanarColorSpaceNameBitmapFormatBytesPerRowBitsPerPixel(
+  var rep = $.NSBitmapImageRep.alloc.initWithBitmapDataPlanesPixelsWidePixelsHighBitsPerSampleSamplesPerPixelHasAlphaIsPlanarColorSpaceNameBitmapFormatBytesPerRowBitsPerPixel(
     null, width, height, 8, 4, true, false, $.NSDeviceRGBColorSpace, $.NSBitmapFormatAlphaPremultipliedLast, 0, 0
   );
-  const context = $.NSGraphicsContext.graphicsContextWithBitmapImageRep(rep);
-  $.NSGraphicsContext.setCurrentContext(context);
-  context.setShouldAntialias(true);
-  context.setImageInterpolation($.NSImageInterpolationHigh);
+  var nsctx = $.NSGraphicsContext.graphicsContextWithBitmapImageRep(rep);
+  $.NSGraphicsContext.setCurrentContext(nsctx);
+  nsctx.setShouldAntialias(true);
+  nsctx.setImageInterpolation($.NSImageInterpolationHigh);
+  var cg = nsctx.CGContext;
 
-  let x = paddingX;
-  const iconY = Math.floor((height - iconSize) / 2);
-  const textY = Math.floor((height - fontSize - (2 * scale)) / 2);
-  payload.segments.forEach((segment, index) => {
-    if (index > 0) {
+  function setFill(hex, alpha) {
+    var v = hex.replace('#', '');
+    $.CGContextSetRGBFillColor(cg,
+      parseInt(v.slice(0, 2), 16) / 255,
+      parseInt(v.slice(2, 4), 16) / 255,
+      parseInt(v.slice(4, 6), 16) / 255,
+      alpha !== undefined ? alpha : 1);
+  }
+
+  function fillRoundedRect(rx, ry, rw, rh, rr) {
+    var p = $.CGPathCreateWithRoundedRect($.CGRectMake(rx, ry, rw, rh), rr, rr, null);
+    $.CGContextAddPath(cg, p);
+    $.CGContextFillPath(cg);
+  }
+
+  var x = paddingX;
+  var iconY = Math.floor((height - iconSize) / 2);
+
+  payload.segments.forEach(function(seg, idx) {
+    if (idx > 0) {
       x += segmentGap;
-      $(payload.divider).drawAtPointWithAttributes($.NSMakePoint(x, textY), dividerAttrs);
-      x += dividerWidth + segmentGap;
+      setFill(variant.dividerColor, variant.dividerAlpha);
+      $.CGContextFillRect(cg, $.CGRectMake(x, Math.floor(height * 0.2), dividerW, Math.floor(height * 0.6)));
+      x += dividerW + segmentGap;
     }
-    if (segment.iconPath) {
-      const icon = $.NSImage.alloc.initWithContentsOfFile($(segment.iconPath));
+    var iconFile = (mode === 'dark' && seg.iconPathDark) ? seg.iconPathDark : seg.iconPath;
+    if (iconFile) {
+      var icon = $.NSImage.alloc.initWithContentsOfFile($(iconFile));
       if (icon) {
-        icon.drawInRectFromRectOperationFraction($.NSMakeRect(x, iconY, iconSize, iconSize), $.NSZeroRect, $.NSCompositingOperationSourceOver, 1);
+        icon.drawInRectFromRectOperationFraction(
+          $.NSMakeRect(x, iconY, iconSize, iconSize),
+          $.NSZeroRect, $.NSCompositingOperationSourceOver, 1
+        );
       }
-      x += iconSize + iconTextGap;
+      x += iconSize + iconBarGap;
     }
-    $(segment.text).drawAtPointWithAttributes($.NSMakePoint(x, textY), attrs);
-    x += Math.ceil($(segment.text).sizeWithAttributes(attrs).width);
+    var bars = seg.bars || [];
+    var totalH = bars.length * barHeight + Math.max(0, bars.length - 1) * barGap;
+    var barY = Math.floor((height + totalH) / 2) - barHeight;
+    for (var i = 0; i < bars.length; i++) {
+      setFill(variant.barBgColor, variant.barBgAlpha);
+      fillRoundedRect(x, barY, barWidth, barHeight, barRadius);
+      if (bars[i].pct > 0) {
+        var pct = Math.min(bars[i].pct, 100);
+        var fw = Math.max(barMinFill, Math.round(barWidth * pct / 100));
+        setFill(bars[i][mode + 'Color'], 1);
+        fillRoundedRect(x, barY, fw, barHeight, barRadius);
+      }
+      barY -= barHeight + barGap;
+    }
+    x += barWidth;
   });
 
-  const png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $.NSDictionary.alloc.init);
+  var png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $.NSDictionary.alloc.init);
   return {
     image: ObjC.unwrap(png.base64EncodedStringWithOptions(0)),
     width: Math.ceil(width / scale),
@@ -145,13 +169,93 @@ function drawImage(payload, variant) {
 }
 
 function run(argv) {
-  const payload = JSON.parse(argv[0]);
+  var payload = JSON.parse(argv[0]);
   return JSON.stringify({
-    light: drawImage(payload, payload.light),
-    dark: drawImage(payload, payload.dark),
+    light: drawImage(payload, payload.light, 'light'),
+    dark: drawImage(payload, payload.dark, 'dark'),
   });
 }
 `;
+
+const DROPDOWN_BAR_SCRIPT = `
+ObjC.import('AppKit');
+ObjC.import('CoreGraphics');
+
+function parseHex(hex) {
+  var v = hex.replace('#', '');
+  return [parseInt(v.slice(0,2),16)/255, parseInt(v.slice(2,4),16)/255, parseInt(v.slice(4,6),16)/255];
+}
+
+function makeBar(bw, bh, br, pct, fc, bgHex, bgAlpha) {
+  var rep = $.NSBitmapImageRep.alloc.initWithBitmapDataPlanesPixelsWidePixelsHighBitsPerSampleSamplesPerPixelHasAlphaIsPlanarColorSpaceNameBitmapFormatBytesPerRowBitsPerPixel(
+    null, bw, bh, 8, 4, true, false, $.NSDeviceRGBColorSpace, $.NSBitmapFormatAlphaPremultipliedLast, 0, 0);
+  var nsctx = $.NSGraphicsContext.graphicsContextWithBitmapImageRep(rep);
+  $.NSGraphicsContext.setCurrentContext(nsctx);
+  nsctx.setShouldAntialias(true);
+  var cg = nsctx.CGContext;
+  var bg = parseHex(bgHex);
+  $.CGContextSetRGBFillColor(cg, bg[0], bg[1], bg[2], bgAlpha);
+  var bp = $.CGPathCreateWithRoundedRect($.CGRectMake(0,0,bw,bh), br, br, null);
+  $.CGContextAddPath(cg, bp); $.CGContextFillPath(cg);
+  if (pct > 0) {
+    var fw = Math.max(br*2, Math.round(bw * Math.min(pct,100) / 100));
+    $.CGContextSetRGBFillColor(cg, fc[0], fc[1], fc[2], 1);
+    var fp = $.CGPathCreateWithRoundedRect($.CGRectMake(0,0,fw,bh), br, br, null);
+    $.CGContextAddPath(cg, fp); $.CGContextFillPath(cg);
+  }
+  var png = rep.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $.NSDictionary.alloc.init);
+  return ObjC.unwrap(png.base64EncodedStringWithOptions(0));
+}
+
+function run(argv) {
+  var p = JSON.parse(argv[0]);
+  var s = p.scale || 2;
+  var bw = p.barWidth * s, bh = p.barHeight * s, br = p.barRadius * s;
+  var results = [];
+  for (var i = 0; i < p.bars.length; i++) {
+    var bar = p.bars[i];
+    var lc = parseHex(bar.lightColor), dc = parseHex(bar.darkColor);
+    var li = makeBar(bw, bh, br, bar.pct, lc, p.light.barBgColor, p.light.barBgAlpha);
+    var di = makeBar(bw, bh, br, bar.pct, dc, p.dark.barBgColor, p.dark.barBgAlpha);
+    results.push(li + ',' + di);
+  }
+  return JSON.stringify({images: results, width: p.barWidth, height: p.barHeight});
+}
+`;
+
+const dropdownBarCache = new Map<string, { images: string[]; width: number; height: number } | null>();
+
+function renderDropdownBarImages(bars: Array<{ pct: number; lightColor: string; darkColor: string }>) {
+  if (bars.length === 0) {
+    return [];
+  }
+  const payload = {
+    bars,
+    scale: TITLE_IMAGE_SCALE,
+    barWidth: 80,
+    barHeight: 10,
+    barRadius: 3,
+    light: { barBgColor: "000000", barBgAlpha: 0.15 },
+    dark: { barBgColor: "FFFFFF", barBgAlpha: 0.2 },
+  };
+  const cacheKey = JSON.stringify(payload);
+  if (dropdownBarCache.has(cacheKey)) {
+    const cached = dropdownBarCache.get(cacheKey);
+    return cached ? cached.images.map((img) => ({ image: img, width: cached.width, height: cached.height })) : [];
+  }
+  try {
+    const output = execFileSync("/usr/bin/osascript", ["-l", "JavaScript", "-e", DROPDOWN_BAR_SCRIPT, cacheKey], {
+      encoding: "utf8",
+      timeout: 3000,
+    }).trim();
+    const result = JSON.parse(output) as { images: string[]; width: number; height: number };
+    dropdownBarCache.set(cacheKey, result);
+    return result.images.map((img) => ({ image: img, width: result.width, height: result.height }));
+  } catch {
+    dropdownBarCache.set(cacheKey, null);
+    return [];
+  }
+}
 
 function appCliPath(paths: RuntimePaths) {
   return path.join(paths.stateDir, "app", "dist", "cli.js");
@@ -356,6 +460,29 @@ function titleSegment(provider: StatusSnapshot["providers"][number]) {
   return `5H:${titleFive},7D:${titleSeven}`;
 }
 
+function titleBars(provider: StatusSnapshot["providers"][number]) {
+  if (provider.usage.balance && provider.usage.windows.length === 0) {
+    const isAvailable = provider.usage.balance.isAvailable;
+    const [lightColor, darkColor] = (isAvailable ? OK_COLOR : ALERT_COLOR).split(",");
+    return [{ pct: isAvailable ? 100 : 0, lightColor, darkColor }];
+  }
+  const state = provider.analysis.state;
+  const [lightColor, darkColor] = STATE_COLOR[state].split(",");
+  const fiveHour = provider.analysis.fiveHour;
+  const sevenDay = provider.analysis.sevenDay;
+  const bars: Array<{ pct: number; lightColor: string; darkColor: string }> = [];
+  if (fiveHour) {
+    bars.push({ pct: Math.round(fiveHour.usedPercent), lightColor, darkColor });
+  }
+  if (sevenDay) {
+    bars.push({ pct: Math.round(sevenDay.usedPercent), lightColor, darkColor });
+  }
+  if (bars.length === 0) {
+    bars.push({ pct: 0, lightColor, darkColor });
+  }
+  return bars;
+}
+
 function providerIconPath(provider: string) {
   const asset = PROVIDER_ICON_ASSET[provider];
   if (!asset) {
@@ -366,33 +493,46 @@ function providerIconPath(provider: string) {
 }
 
 function titleImageValue(providers: StatusSnapshot["providers"]) {
-  const segments = providers.map((provider) => ({
-    provider: provider.usage.provider,
-    text: titleSegment(provider),
-    iconPath: providerIconPath(provider.usage.provider),
-  }));
+  const segments = providers.map((provider) => {
+    const p = provider.usage.provider;
+    const darkAsset = PROVIDER_ICON_DARK_ASSET[p];
+    const darkPath = darkAsset ? path.join(ASSET_DIR, darkAsset) : null;
+    return {
+      provider: p,
+      bars: titleBars(provider),
+      iconPath: providerIconPath(p),
+      iconPathDark: darkPath && fs.existsSync(darkPath) ? darkPath : null,
+    };
+  });
   if (segments.length === 0) {
     return null;
   }
 
   const payload = {
     segments,
-    divider: TITLE_SEPARATOR,
     scale: TITLE_IMAGE_SCALE,
     height: 22,
     minWidth: 1,
     paddingX: 0,
     iconSize: 16,
-    iconTextGap: 4,
-    segmentGap: 9,
-    fontSize: 13,
+    iconBarGap: 4,
+    segmentGap: 8,
+    barWidth: 48,
+    barHeight: 4,
+    barGap: 3,
+    barRadius: 2,
+    barMinFill: 6,
     light: {
-      textColor: "FFFFFF",
-      dividerColor: "E5E7EB",
+      dividerColor: "000000",
+      dividerAlpha: 0.25,
+      barBgColor: "000000",
+      barBgAlpha: 0.3,
     },
     dark: {
-      textColor: "FFFFFF",
-      dividerColor: "E5E7EB",
+      dividerColor: "FFFFFF",
+      dividerAlpha: 0.3,
+      barBgColor: "FFFFFF",
+      barBgAlpha: 0.25,
     },
   };
   const cacheKey = JSON.stringify(payload);
@@ -440,15 +580,36 @@ function muted(text: string) {
   return line(text, { color: MUTED_COLOR, size: 12 });
 }
 
-function meter(usedPercent: number, width = METER_WIDTH) {
-  const usedCells = Math.max(0, Math.min(width, Math.round((usedPercent / 100) * width)));
-  return `${"#".repeat(usedCells)}${"-".repeat(width - usedCells)}`;
+function ansiRGB(hexPair: string, text: string) {
+  const hex = (hexPair.split(",")[1] || hexPair).replace("#", "");
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `\x1b[38;2;${r};${g};${b}m${text}\x1b[0m`;
 }
 
-function usageLine(label: "5h" | "7d", usedPercent: number, resetsAt: string, color: string) {
+function coloredMeter(usedPercent: number, fillColor: string, width = METER_WIDTH) {
+  const filled = Math.max(0, Math.min(width, Math.round((usedPercent / 100) * width)));
+  const empty = width - filled;
+  return (filled > 0 ? ansiRGB(fillColor, "█".repeat(filled)) : "")
+    + (empty > 0 ? ansiRGB(MUTED_COLOR, "░".repeat(empty)) : "");
+}
+
+function usageLine(label: "5h" | "7d", usedPercent: number, resetsAt: string, color: string, barImage?: { image: string; width: number; height: number }) {
   const percent = `${Math.round(usedPercent).toString().padStart(3)}%`;
-  return line(`${label}  ${meter(usedPercent)}  ${percent}  reset ${formatDurationUntil(resetsAt)}`, {
-    color,
+  if (barImage) {
+    return line(`${label}  ${percent}  reset ${formatDurationUntil(resetsAt)}`, {
+      image: barImage.image,
+      width: barImage.width,
+      height: barImage.height,
+      color,
+      font: ROW_FONT,
+      size: 12,
+    });
+  }
+  const bar = coloredMeter(usedPercent, color);
+  return line(`${label}  ${bar}  ${ansiRGB(color, percent)}  reset ${formatDurationUntil(resetsAt)}`, {
+    ansi: true,
     font: ROW_FONT,
     size: 12,
   });
@@ -565,6 +726,24 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
     "---",
   ];
 
+  const barDataList: Array<{ pct: number; lightColor: string; darkColor: string }> = [];
+  for (const item of providers) {
+    if (item.usage.balance && item.usage.windows.length === 0) {
+      continue;
+    }
+    const [lc, dc] = STATE_COLOR[item.analysis.state].split(",");
+    const f = windowByName(item, "five_hour");
+    const s = windowByName(item, "seven_day");
+    if (f) {
+      barDataList.push({ pct: Math.round(f.usedPercent), lightColor: lc, darkColor: dc });
+    }
+    if (s) {
+      barDataList.push({ pct: Math.round(s.usedPercent), lightColor: lc, darkColor: dc });
+    }
+  }
+  const dropdownBars = renderDropdownBarImages(barDataList);
+  let barIdx = 0;
+
   for (const item of providers) {
     const color = STATE_COLOR[item.analysis.state];
     const five = windowByName(item, "five_hour");
@@ -576,7 +755,7 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
       const availableLabel = item.usage.balance.isAvailable ? "Available" : "Depleted";
       lines.push(line(`${formatProviderLabel(item.usage.provider)}  ${availableLabel}`, {
         ...providerIconParams(item.usage.provider),
-        color: item.usage.balance.isAvailable ? OK_COLOR : ALERT_COLOR,
+        color: TEXT_COLOR,
         size: 14,
         badge: balanceText,
       }));
@@ -592,15 +771,15 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
 
     lines.push(line(`${formatProviderLabel(item.usage.provider)}  ${STATE_LABEL[item.analysis.state]}`, {
       ...providerIconParams(item.usage.provider),
-      color,
+      color: TEXT_COLOR,
       size: 14,
       badge: providerBadge(item),
     }));
     if (five) {
-      lines.push(usageLine("5h", five.usedPercent, five.resetsAt, color));
+      lines.push(usageLine("5h", five.usedPercent, five.resetsAt, TEXT_COLOR, dropdownBars[barIdx++]));
     }
     if (seven) {
-      lines.push(usageLine("7d", seven.usedPercent, seven.resetsAt, TEXT_COLOR));
+      lines.push(usageLine("7d", seven.usedPercent, seven.resetsAt, TEXT_COLOR, dropdownBars[barIdx++]));
     }
     lines.push(muted(targetLabel(item)));
     lines.push(line(item.analysis.message, { color: MUTED_COLOR, size: 12, length: 84 }));
@@ -626,6 +805,15 @@ export function renderMenuBar(snapshot: StatusSnapshot = loadDisplayStatusSnapsh
     refresh: true,
     color: TEXT_COLOR,
     sfimage: "arrow.clockwise",
+  }));
+  lines.push(line("Exit Burn AI", {
+    bash: process.execPath,
+    param1: appCliPath(buildPaths()),
+    param2: "menubar",
+    param3: "uninstall",
+    terminal: false,
+    color: MUTED_COLOR,
+    sfimage: "xmark.circle",
   }));
   return lines.join("\n");
 }
