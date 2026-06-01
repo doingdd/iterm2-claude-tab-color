@@ -60,6 +60,14 @@ Burn AI 是第三件工具：读取本机 Claude Code / Codex 已产生的 codin
   2. 确认 `<PluginDirectory>/burn-ai.1m.js` 文件存在且可执行
   3. 如果文件丢失，立即执行 `burn-ai menubar install` 恢复
 - 不要假设 `burn-ai install` 写入的插件文件在 SwiftBar 重启后仍然保留。SwiftBar 可能在插件执行出错时清除或跳过插件文件。每次验证流程结束前都要重新检查。
+- SwiftBar 插件模板中 `swiftbar.refreshOnOpen` 必须是 `false`。该选项为 `true` 时，SwiftBar 会在每次展开 dropdown 时重新执行插件脚本（重跑 node + 多次 osascript 渲染图标/进度条 + base64 编码），用户点击菜单栏会感到明显卡顿。dropdown 里有 `Refresh now` 项 + SwiftBar 1 分钟自调度，refreshOnOpen 关闭后体验无损。
+
+## Provider usage 解析原则
+
+- 每个 provider 的 collector 必须**完整读取 API 返回的 usage 信号**。不能只解析一类信号就把另一种信号当 0 处理。
+- MiniMax 的 `/v1/token_plan/remains` 对每个 model 返回两套信号：count 维度（`current_*_usage_count` / `current_*_total_count`，适用于 video 等配额计数型）和 percent 维度（`current_*_remaining_percent`，0-100，适用于 general 这种信用消耗型）。`general` 的 `total_count` 永远是 0，必须从 `100 - remaining_percent` 推出 used%；如果只看 count 维度，credit-based 账户会永远显示 0%。
+- 同样的原则适用于其它可能扩展 percent 字段的 provider：解析时优先取真实信号，不要因为一种信号缺省就 0% 兜底，而要看另一种信号是否给出真实值。
+- 解析逻辑变动必须同步加测试覆盖两种信号（count > 0、percent-only、两者都缺）。
 
 ## 验证
 

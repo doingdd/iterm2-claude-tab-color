@@ -11,8 +11,10 @@ interface MinimaxModelRemain {
   remains_time: number;
   current_interval_total_count: number;
   current_interval_usage_count: number;
+  current_interval_remaining_percent?: number;
   current_weekly_total_count: number;
   current_weekly_usage_count: number;
+  current_weekly_remaining_percent?: number;
   weekly_start_time: number;
   weekly_end_time: number;
   weekly_remains_time: number;
@@ -33,8 +35,10 @@ interface MinimaxCategoryRemain {
   remains_time: number;
   current_interval_total_count: number;
   current_interval_usage_count: number;
+  current_interval_remaining_percent?: number;
   current_weekly_total_count: number;
   current_weekly_usage_count: number;
+  current_weekly_remaining_percent?: number;
   weekly_start_time: number;
   weekly_end_time: number;
   weekly_remains_time: number;
@@ -81,7 +85,10 @@ export function usageFromMinimaxQuota(
     return null;
   }
 
-  const primary = models[0];
+  // Prefer the "general" model entry — it reflects the text/chat plan this CLI
+  // is most often used for. Fall back to the first model so we never return
+  // null for an account that only reports other models.
+  const primary = models.find((m) => m.model_name === "general") ?? models[0];
 
   let fiveHourPercent = 0;
   let fiveHourReset = primary.end_time;
@@ -91,23 +98,31 @@ export function usageFromMinimaxQuota(
   if (categories && categories.length > 0) {
     const textGen = categories.find((c) => c.category === "text_generation");
     if (textGen) {
-      fiveHourPercent = textGen.current_interval_total_count > 0
-        ? (textGen.current_interval_usage_count / textGen.current_interval_total_count) * 100
-        : 0;
+      fiveHourPercent = percentFromQuota(
+        textGen.current_interval_total_count,
+        textGen.current_interval_usage_count,
+        textGen.current_interval_remaining_percent,
+      );
       fiveHourReset = textGen.end_time;
-      weeklyPercent = textGen.current_weekly_total_count > 0
-        ? (textGen.current_weekly_usage_count / textGen.current_weekly_total_count) * 100
-        : fiveHourPercent;
+      weeklyPercent = percentFromQuota(
+        textGen.current_weekly_total_count,
+        textGen.current_weekly_usage_count,
+        textGen.current_weekly_remaining_percent,
+      ) ?? fiveHourPercent;
       weeklyReset = textGen.weekly_end_time;
     }
   } else {
-    fiveHourPercent = primary.current_interval_total_count > 0
-      ? (primary.current_interval_usage_count / primary.current_interval_total_count) * 100
-      : 0;
+    fiveHourPercent = percentFromQuota(
+      primary.current_interval_total_count,
+      primary.current_interval_usage_count,
+      primary.current_interval_remaining_percent,
+    );
 
-    weeklyPercent = primary.current_weekly_total_count > 0
-      ? (primary.current_weekly_usage_count / primary.current_weekly_total_count) * 100
-      : fiveHourPercent;
+    weeklyPercent = percentFromQuota(
+      primary.current_weekly_total_count,
+      primary.current_weekly_usage_count,
+      primary.current_weekly_remaining_percent,
+    ) ?? fiveHourPercent;
   }
 
   const fiveHour = normalizeWindow("five_hour", {
@@ -132,6 +147,26 @@ export function usageFromMinimaxQuota(
     fiveHour,
     sevenDay,
   });
+}
+
+// MiniMax reports usage two ways depending on plan type. Count-based accounts
+// (e.g. `video`) populate current_*_usage_count / current_*_total_count.
+// Credit-based accounts (e.g. `general`) keep total at 0 and expose
+// current_*_remaining_percent in 0-100. Prefer the count ratio when total > 0,
+// otherwise derive from the remaining percent, and only fall back to 0 when
+// neither signal is present.
+function percentFromQuota(
+  totalCount: number | undefined,
+  usageCount: number | undefined,
+  remainingPercent: number | undefined,
+): number {
+  if (typeof totalCount === "number" && totalCount > 0 && typeof usageCount === "number") {
+    return Math.max(0, Math.min(100, (usageCount / totalCount) * 100));
+  }
+  if (typeof remainingPercent === "number" && Number.isFinite(remainingPercent)) {
+    return Math.max(0, Math.min(100, 100 - remainingPercent));
+  }
+  return 0;
 }
 
 export async function collectMinimaxUsage(config: MinimaxConfig): Promise<ProviderUsage> {

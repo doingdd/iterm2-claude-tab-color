@@ -1,8 +1,8 @@
 # Burn AI
 
-Burn AI is BurnKit's plan-burn layer. It monitors local Claude Code, Codex, and GLM (Zhipu AI) coding plan usage, then tells you whether your current pace is under-burning, on track, over-burning, or close to a limit.
+Burn AI is BurnKit's plan-burn layer. It monitors local Claude Code, Codex, GLM (Zhipu AI), DeepSeek, and MiniMax coding plan usage, then tells you whether your current pace is under-burning, on track, over-burning, or close to a limit.
 
-It does not manage login state or credentials. For Claude and Codex it reads usage data already produced locally. For GLM it calls the Zhipu AI quota API using an API key stored in `~/.burn-ai/config.json`.
+It does not manage login state or credentials. For Claude and Codex it reads usage data already produced locally. For GLM, DeepSeek, and MiniMax it calls the respective quota/balance API using an API key stored in `~/.burn-ai/config.json`.
 
 ## Quick Start
 
@@ -85,6 +85,37 @@ Burn AI calls the Zhipu AI quota API (`GET /api/monitor/usage/quota/limit`) to r
 
 Get your API key from the [Zhipu AI console](https://open.bigmodel.cn). Without this key, GLM monitoring will report `GLM_API_KEY_MISSING`.
 
+## DeepSeek
+
+Burn AI calls `GET https://api.deepseek.com/user/balance` to read your account balance. DeepSeek exposes balance rather than 5h/7d usage windows, so the menu bar shows `Available` or `Depleted` plus the currency amount. Set `deepseek.apiKey` in `~/.burn-ai/config.json`:
+
+```json
+{
+  "providers": ["codex", "claude", "glm", "deepseek"],
+  "deepseek": {
+    "apiKey": "your-deepseek-api-key"
+  }
+}
+```
+
+Without this key, DeepSeek monitoring will report `DEEPSEEK_API_KEY_MISSING`.
+
+## MiniMax (M3)
+
+Burn AI calls `GET https://api.minimaxi.com/v1/token_plan/remains` to read 5h and 7d usage windows. MiniMax returns two signals per model: a count-based ratio (`current_*_usage_count` / `current_*_total_count`) for tiered models like `video`, and a credit-based `current_*_remaining_percent` (0-100) for the `general` model where the count stays at 0. Burn AI prefers the count ratio when total > 0 and otherwise derives used% as `100 - remaining_percent`. Set `minimax.apiKey` and (optionally) `minimax.region` in `~/.burn-ai/config.json`:
+
+```json
+{
+  "providers": ["codex", "claude", "glm", "minimax"],
+  "minimax": {
+    "region": "cn",
+    "apiKey": "your-minimax-api-key"
+  }
+}
+```
+
+`region` defaults to `cn` (api.minimaxi.com); set it to `global` to use api.minimax.io. Without this key, MiniMax monitoring will report `MINIMAX_API_KEY_MISSING`.
+
 ## Profiles
 
 Set `BURN_AI_PROFILE=high` for the more aggressive profile. The default is `low`.
@@ -119,7 +150,7 @@ burn-ai menubar install
 
 If SwiftBar is not installed, `burn-ai doctor` will report it. If SwiftBar already has a custom plugin folder, Burn AI uses that folder.
 
-The menu bar title shows the official Codex, Claude Code, and Zhipu AI icons with compact 5h/7d percentages:
+The menu bar title shows the official Codex, Claude Code, Zhipu AI, DeepSeek, and MiniMax icons with compact 5h/7d percentages (DeepSeek shows balance instead of windows):
 
 ```text
 {Codex icon} 5H:14%,7D:67% │ {Claude icon} 5H:24%,7D:74% │ {GLM icon} 5H:36%,7D:7%
@@ -137,6 +168,8 @@ SwiftBar only supports one bitmap image on a single stable title item, so Burn A
 | `~/.burn-ai/codex/latest.json` | Latest normalized Codex usage |
 | `~/.burn-ai/claude/latest.json` | Latest normalized Claude usage after status line ingest |
 | `~/.burn-ai/glm/latest.json` | Latest normalized GLM usage from Zhipu AI quota API |
+| `~/.burn-ai/deepseek/latest.json` | Latest normalized DeepSeek balance from DeepSeek API |
+| `~/.burn-ai/minimax/latest.json` | Latest normalized MiniMax 5h/7d usage from MiniMax API |
 | `~/.local/bin/burn-ai` | CLI shim pointing at the stable runtime |
 | `~/Library/LaunchAgents/com.duying.burn-ai.plist` | macOS launchd agent |
 | SwiftBar `PluginDirectory` / `burn-ai.1m.js` | Menu bar plugin wrapper |

@@ -830,7 +830,7 @@ function pluginScript(paths: RuntimePaths) {
 // <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
 // <swiftbar.hideLastUpdated>true</swiftbar.hideLastUpdated>
 // <swiftbar.hideDisablePlugin>true</swiftbar.hideDisablePlugin>
-// <swiftbar.refreshOnOpen>true</swiftbar.refreshOnOpen>
+// <swiftbar.refreshOnOpen>false</swiftbar.refreshOnOpen>
 const { spawnSync } = require("node:child_process");
 const result = spawnSync(${JSON.stringify(process.execPath)}, [${JSON.stringify(appCliPath(paths))}, "menubar", "render"], {
   encoding: "utf8",
