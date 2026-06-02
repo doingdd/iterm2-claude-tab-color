@@ -2,6 +2,25 @@
 
 > Overclock the human. Then build the harness.
 
+<p align="center">
+  <table>
+    <tr>
+      <td><img src="assets/launch/build/scene-1-iterm.png" width="280" alt="iTerm2 tab color reflects AI session idle state"></td>
+      <td><img src="assets/launch/build/scene-2-crouter.png" width="280" alt="c command routes Claude Code across providers"></td>
+      <td><img src="assets/launch/build/scene-3-menubar.png" width="280" alt="Burn AI menu bar with per-provider state panel"></td>
+    </tr>
+    <tr>
+      <td align="center"><b>iTerm2 Tab Color</b><br><sub>idle → red</sub></td>
+      <td align="center"><b>c Router</b><br><sub>switch by number</sub></td>
+      <td align="center"><b>🔥 Menu Bar</b><br><sub>state at a glance</sub></td>
+    </tr>
+  </table>
+</p>
+
+<p align="center">
+  <em>glance at the menu bar — find the red tab, switch back to the green one</em>
+</p>
+
 [![npm](https://img.shields.io/npm/v/burnkit?color=cb3837&logo=npm&label=burnkit)](https://www.npmjs.com/package/burnkit)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg?logo=apple)](#install)
