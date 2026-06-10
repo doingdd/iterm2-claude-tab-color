@@ -7,13 +7,7 @@
 #   c s                             # 显示配置文件
 #
 
-_C_SOURCE="${BASH_SOURCE[0]}"
-while [ -L "$_C_SOURCE" ]; do
-  _C_DIR="$(cd "$(dirname "$_C_SOURCE")" && pwd)"
-  _C_SOURCE="$(readlink "$_C_SOURCE")"
-  [[ "$_C_SOURCE" != /* ]] && _C_SOURCE="$_C_DIR/$_C_SOURCE"
-done
-SCRIPT_DIR="$(cd "$(dirname "$_C_SOURCE")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/config.env"
 ROUTER_SCRIPT="${SCRIPT_DIR}/router.py"
 C_SETTINGS="$HOME/.claude/settings-c.json"
@@ -32,16 +26,6 @@ NC='\033[0m'
 die() {
     echo -e "${RED}错误: $1${NC}" >&2
     exit 1
-}
-
-# 确保 settings-c.json 存在（apiKeyHelper 路由必需）
-ensure_settings() {
-    if [[ ! -f "$C_SETTINGS" ]]; then
-        local auth_helper="$SCRIPT_DIR/router-auth-helper.sh"
-        mkdir -p "$(dirname "$C_SETTINGS")"
-        printf '{"apiKeyHelper": "%s"}\n' "$auth_helper" > "$C_SETTINGS"
-        echo -e "${GREEN}已创建 Claude 设置: $C_SETTINGS${NC}"
-    fi
 }
 
 # 检查配置文件是否存在
@@ -139,33 +123,58 @@ find_free_port() {
 }
 
 # 列出所有存活的路由代理实例
+# 输出格式：<name> <pid>，name 是 pid 文件名去后缀（"3100" 表示 team 模式，
+# "openai-4100" 表示 protocol 模式）。caller 可通过前缀判断类型。
 router_list_alive() {
     mkdir -p "$ROUTER_PID_DIR"
     for f in "$ROUTER_PID_DIR"/*.pid; do
         [[ -f "$f" ]] || continue
-        local pid port
+        local pid name
         pid=$(cat "$f")
-        port="${f##*/}"
-        port="${port%.pid}"
+        name="${f##*/}"
+        name="${name%.pid}"
         if kill -0 "$pid" 2>/dev/null; then
-            echo "$port $pid"
+            echo "$name $pid"
         else
             rm -f "$f"
         fi
     done
 }
 
-router_stop_all() {
-    local found=0
-    while read -r port pid; do
-        kill "$pid" 2>/dev/null
-        rm -f "${ROUTER_PID_DIR}/${port}.pid"
-        echo -e "${YELLOW}路由代理已停止 (port=$port pid=$pid)${NC}"
-        found=1
-    done < <(router_list_alive)
-    [[ $found -eq 0 ]] && echo -e "${YELLOW}没有运行中的路由代理${NC}"
+# 推断 name 的协议类型
+_router_kind() {
+    local name="$1"
+    case "$name" in
+        openai-*) echo "protocol(openai)" ;;
+        *)        echo "team" ;;
+    esac
 }
 
+# 停掉 router：filter 为 "all" / "team" / "protocol" / "openai"
+router_stop_all() {
+    local filter="${1:-all}"
+    local found=0
+    while read -r name pid; do
+        local kind
+        kind=$(_router_kind "$name")
+        local keep=0
+        case "$filter" in
+            all)      keep=1 ;;
+            team)     [[ "$kind" == "team" ]] && keep=1 ;;
+            protocol|openai) [[ "$kind" == "protocol"* ]] && keep=1 ;;
+        esac
+        [[ $keep -eq 0 ]] && continue
+        kill "$pid" 2>/dev/null
+        rm -f "${ROUTER_PID_DIR}/${name}.pid"
+        # 协议模式的 lock dir 也清掉
+        rm -rf "${ROUTER_PID_DIR}/${name}.lock" 2>/dev/null
+        echo -e "${YELLOW}路由代理已停止 (kind=$kind name=$name pid=$pid)${NC}"
+        found=1
+    done < <(router_list_alive)
+    [[ $found -eq 0 ]] && echo -e "${YELLOW}没有运行中的路由代理（filter=$filter）${NC}"
+}
+
+# Team 模式 router 启动（每个 c 独占一个新端口）
 router_start() {
     local leader_url="$1"
     local leader_token="$2"
@@ -213,6 +222,105 @@ router_start() {
     die "路由代理启动失败"
 }
 
+# Protocol 模式 router 启动/复用（多 c 共享）
+# 参数：$1=协议名（openai）  $2=upstream_url  $3=upstream_token  [$4]=model override
+# 端口固定：openai=4100（加新协议时在 case 里加分支）
+# 锁机制：mkdir 原子锁（macOS 友好，不依赖 flock）
+router_acquire_or_start() {
+    local protocol="$1"
+    local upstream_url="$2"
+    local upstream_token="$3"
+    local model_override="${4:-}"
+
+    local port
+    case "$protocol" in
+        openai) port=4100 ;;
+        *)      die "router 协议模式不支持: $protocol" ;;
+    esac
+
+    local name="${protocol}-${port}"
+    local pid_file="${ROUTER_PID_DIR}/${name}.pid"
+    local lock_dir="${ROUTER_PID_DIR}/${name}.lock"
+    local log_file="${ROUTER_PID_DIR}/${name}.log"
+
+    [[ ! -f "$ROUTER_SCRIPT" ]] && die "router.py 未找到: $ROUTER_SCRIPT"
+    mkdir -p "$ROUTER_PID_DIR"
+
+    # 1. fast path：已活 + healthcheck → 复用
+    if [[ -f "$pid_file" ]]; then
+        local existing_pid
+        existing_pid=$(cat "$pid_file" 2>/dev/null || echo "")
+        if [[ -n "$existing_pid" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+            if curl -sf "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
+                ROUTER_ALLOCATED_PORT="$port"
+                return 0
+            fi
+            # 进程在但 healthcheck 失败 → 杀
+            kill "$existing_pid" 2>/dev/null
+            sleep 0.5
+        fi
+        rm -f "$pid_file"
+    fi
+
+    # 2. 慢路径：mkdir 原子锁 + 二次校验 + 拉起
+    if ! mkdir "$lock_dir" 2>/dev/null; then
+        # 锁被占：等其他 c 拉起（最多等 5s）
+        local waited=0
+        while [[ $waited -lt 50 ]]; do
+            if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null \
+               && curl -sf "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
+                ROUTER_ALLOCATED_PORT="$port"
+                return 0
+            fi
+            sleep 0.1
+            (( waited++ ))
+        done
+        die "无法获取 router 启动锁: $lock_dir（其他 c 正在拉起）"
+    fi
+    # 持锁成功：函数返回时清理锁
+    trap "rmdir '$lock_dir' 2>/dev/null || true" RETURN
+
+    # 3. 持锁后二次校验（持锁等待的 c 可能已经起好）
+    if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null \
+       && curl -sf "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
+        ROUTER_ALLOCATED_PORT="$port"
+        return 0
+    fi
+
+    # 4. 拉起 uvicorn
+    ROUTER_PROTOCOL="$protocol" \
+    ROUTER_UPSTREAM_URL="$upstream_url" \
+    ROUTER_UPSTREAM_TOKEN="$upstream_token" \
+    ROUTER_TEAMMATE_MODEL="$model_override" \
+    uvicorn router:app \
+        --app-dir "$SCRIPT_DIR" \
+        --host 127.0.0.1 \
+        --port "$port" \
+        --log-level info \
+        > "$log_file" 2>&1 &
+
+    local pid=$!
+    echo "$pid" > "$pid_file"
+
+    # 5. 健康检查（5s 超时）
+    local max_wait=50 waited=0
+    while [[ $waited -lt $max_wait ]]; do
+        if curl -sf "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
+            ROUTER_ALLOCATED_PORT="$port"
+            return 0
+        fi
+        sleep 0.1
+        (( waited++ ))
+    done
+
+    echo -e "${RED}协议代理启动超时，日志:${NC}"
+    cat "$log_file"
+    # 清理失败的 pid
+    kill "$pid" 2>/dev/null
+    rm -f "$pid_file"
+    die "协议代理启动失败"
+}
+
 # ──────────────────────────────────────────
 # 单 provider 启动
 # ──────────────────────────────────────────
@@ -222,19 +330,21 @@ start_single() {
     shift
 
     check_config
-    ensure_settings
 
     local base_url
     local auth_token
     local compact_window
     local model
     local effort
+    local protocol
 
     base_url=$(read_config_field "$config_num" "BASE_URL")
     auth_token=$(read_config_field "$config_num" "AUTH_TOKEN")
     compact_window=$(read_config_field "$config_num" "COMPACT_WINDOW")
     model=$(read_config_field "$config_num" "MODEL")
     effort=$(read_config_field "$config_num" "EFFORT")
+    protocol=$(read_config_field "$config_num" "PROTOCOL")
+    protocol="${protocol:-anthropic}"  # 默认直传
 
     [[ -z "$base_url" ]]    && die "配置 $config_num 的 BASE_URL 未找到"
     [[ -z "$auth_token" ]]  && die "配置 $config_num 的 AUTH_TOKEN 未找到"
@@ -243,17 +353,34 @@ start_single() {
 
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}🚀 启动 Claude Code [配置 $config_num]${NC}"
-    echo -e "${BLUE}   API:   $base_url${NC}"
-    echo -e "${YELLOW}   模型:  $model_name${NC}"
+    echo -e "${BLUE}   API:     $base_url${NC}"
+    echo -e "${YELLOW}   模型:    $model_name${NC}"
+    echo -e "${MAGENTA}   协议:    $protocol${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    export ANTHROPIC_BASE_URL="$base_url"
-    # 用 CLAUDE_AUTH_TOKEN 存 token，由 apiKeyHelper 读取
-    # 避免 ANTHROPIC_AUTH_TOKEN 与 apiKeyHelper 冲突
-    export CLAUDE_AUTH_TOKEN="$auth_token"
-    unset ANTHROPIC_AUTH_TOKEN
-    export CLAUDE_MODEL_LABEL="$model_name"
+    # 协议模式分支：openai 走本地 router 代理
+    if [[ "$protocol" == "openai" ]]; then
+        ROUTER_ALLOCATED_PORT=""
+        router_acquire_or_start "$protocol" "$base_url" "$auth_token" "$model"
+        echo -e "${GREEN}✓ 协议转换代理就绪 (port ${ROUTER_ALLOCATED_PORT} → $base_url)${NC}"
+        echo ""
+
+        # 重写环境变量：所有请求都打本地 router
+        export ANTHROPIC_BASE_URL="http://127.0.0.1:${ROUTER_ALLOCATED_PORT}"
+        # 真实 token 给 router（router 转发给上游时用），但要通过 apiKeyHelper 传
+        export CLAUDE_AUTH_TOKEN="$auth_token"
+        unset ANTHROPIC_AUTH_TOKEN
+        export CLAUDE_PROTOCOL="openai"  # 让 apiKeyHelper 识别为协议模式
+        export CLAUDE_MODEL_LABEL="$model_name"
+    else
+        # anthropic / 其他：直传模式
+        [[ "$protocol" != "anthropic" ]] && die "未知 PROTOCOL: $protocol（仅支持 anthropic / openai）"
+        export ANTHROPIC_BASE_URL="$base_url"
+        export CLAUDE_AUTH_TOKEN="$auth_token"
+        unset ANTHROPIC_AUTH_TOKEN
+        export CLAUDE_MODEL_LABEL="$model_name"
+    fi
 
     if [[ -n "$model" ]]; then
         export ANTHROPIC_SMALL_FAST_MODEL="$model"
@@ -285,7 +412,13 @@ start_single() {
 
     command -v claude &>/dev/null || die "claude 命令未找到"
 
-    exec claude --dangerously-skip-permissions --settings "$C_SETTINGS" --teammate-mode tmux "$@"
+    # 显式传 --model，让 Claude Code 优先用它（盖过项目级 settings.json 的 model 残留）
+    local claude_args=(--dangerously-skip-permissions --settings "$C_SETTINGS" --teammate-mode tmux)
+    if [[ -n "$model" ]]; then
+        claude_args+=(--model "$model")
+    fi
+
+    exec claude "${claude_args[@]}" "$@"
 }
 
 # ──────────────────────────────────────────
@@ -298,7 +431,6 @@ start_team() {
     shift 2
 
     check_config
-    ensure_settings
 
     # 读取 leader 配置
     local leader_url leader_token leader_compact leader_model leader_effort
@@ -355,20 +487,11 @@ start_team() {
         unset CLAUDE_CODE_EFFORT_LEVEL
     fi
 
-    # leader 模型 override：让 Claude Code 发送 provider 支持的模型名
-    # teammate 的模型由路由器 prepare_body 替换
-    if [[ -n "$leader_model" ]]; then
-        export ANTHROPIC_SMALL_FAST_MODEL="$leader_model"
-        export ANTHROPIC_DEFAULT_SONNET_MODEL="$leader_model"
-        export ANTHROPIC_DEFAULT_OPUS_MODEL="$leader_model"
-        export ANTHROPIC_DEFAULT_HAIKU_MODEL="$leader_model"
-        echo -e "${YELLOW}   Leader Model Override: $leader_model${NC}"
-    else
-        unset ANTHROPIC_SMALL_FAST_MODEL
-        unset ANTHROPIC_DEFAULT_SONNET_MODEL
-        unset ANTHROPIC_DEFAULT_OPUS_MODEL
-        unset ANTHROPIC_DEFAULT_HAIKU_MODEL
-    fi
+    # 清除旧的模型 override，让路由代理完全接管
+    unset ANTHROPIC_SMALL_FAST_MODEL
+    unset ANTHROPIC_DEFAULT_SONNET_MODEL
+    unset ANTHROPIC_DEFAULT_OPUS_MODEL
+    unset ANTHROPIC_DEFAULT_HAIKU_MODEL
 
     export ANTHROPIC_BASE_URL="http://127.0.0.1:${ROUTER_ALLOCATED_PORT}"
     unset ANTHROPIC_AUTH_TOKEN
@@ -417,15 +540,20 @@ main() {
         exit 0
     fi
 
-    # c router stop / status
+    # c router stop/status [filter]
     if [[ "$cmd" == "router" ]]; then
         local sub="${2:-}"
+        local filter="${3:-all}"  # "all" | "team" | "protocol" | "openai"
         if [[ "$sub" == "stop" ]]; then
-            router_stop_all
+            router_stop_all "$filter"
         elif [[ "$sub" == "status" ]]; then
             local count=0
-            while read -r port pid; do
-                echo -e "${GREEN}路由代理运行中 (port=$port pid=$pid)${NC}"
+            while read -r name pid; do
+                local kind
+                kind=$(_router_kind "$name")
+                local port="$name"
+                [[ "$name" == *-* ]] && port="${name##*-}"  # "openai-4100" → "4100"
+                echo -e "${GREEN}路由代理 [$kind] (name=$name port=$port pid=$pid)${NC}"
                 curl -sf "http://127.0.0.1:${port}/" | python3 -m json.tool 2>/dev/null
                 (( count++ ))
             done < <(router_list_alive)
