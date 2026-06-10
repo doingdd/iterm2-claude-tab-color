@@ -38,6 +38,9 @@
   "scripts": {
     "prepack": "cd tools/burn-ai && npm ci && npm run build"
   },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  },
   "engines": {
     "node": ">=20"
   }

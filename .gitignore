@@ -6,5 +6,11 @@ __pycache__/
 .serena/
 *.tab-color-daemon.plist
 raw_think.md
+node_modules/
 tools/burn-ai/node_modules/
 tools/burn-ai/dist/
+# Social-platform publish helpers (Playwright state + ad-hoc previews)
+publish-state/
+*.state.json
+*-compose-preview.png
+-rough-compose.png

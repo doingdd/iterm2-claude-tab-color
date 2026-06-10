@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>iTerm2 Tab Color — BurnKit</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+body {
+  background: #d9fff4;
+  color: #0f2c2d;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.frame { width: 1040px; }
+.title {
+  font-size: 22px; font-weight: 780; color: #0f2c2d;
+  margin-bottom: 4px; letter-spacing: -0.3px;
+}
+.subtitle {
+  color: rgba(15, 44, 45, 0.6); font-size: 12px;
+  margin-bottom: 16px; letter-spacing: 0.3px;
+}
+.iterm {
+  background: #181825;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 28px 70px rgba(15, 44, 45, 0.25);
+}
+.titlebar {
+  background: #11111b;
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid #1e1e2e;
+}
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot.r { background: #ff7e95; }
+.dot.y { background: #ffd37a; }
+.dot.g { background: #8df49c; }
+.tabs {
+  display: flex;
+  background: #11111b;
+  padding: 0;
+  border-bottom: 1px solid #1e1e2e;
+}
+.tab {
+  flex: 1;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #7f849c;
+  border-right: 1px solid #1e1e2e;
+  border-top: 4px solid transparent;
+  position: relative;
+  min-width: 0;
+  transition: background 0.2s;
+}
+.tab:last-child { border-right: none; }
+.tab.active { background: #1e1e2e; }
+.tab .row1 {
+  display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; overflow: hidden;
+}
+.tab .icon { font-size: 12px; flex-shrink: 0; }
+.tab .name { font-weight: 600; font-size: 12px; color: #bac2de; overflow: hidden; text-overflow: ellipsis; }
+.tab.active .name { color: #cdd6f4; }
+.tab .dot-pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  margin-left: auto; flex-shrink: 0;
+  background: var(--c, #8df49c);
+  box-shadow: 0 0 0 0 var(--cg, rgba(141,244,156,0.7));
+  animation: pulse 1.4s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 var(--cg, rgba(141,244,156,0.7)); }
+  70%  { box-shadow: 0 0 0 7px rgba(0,0,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+}
+.tab .row2 {
+  font-size: 10.5px;
+  color: #6c7086;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab.active .row2 { color: #9399b2; }
+.tab .row2 .ago { color: inherit; }
+
+/* 颜色: idle 时间 → 颜色 */
+.tab.t-default { border-top-color: #45475a; }
+.tab.t-active  { border-top-color: #8df49c; }
+.tab.t-recent  { border-top-color: #5fd7ff; }
+.tab.t-mild    { border-top-color: #ffd37a; }
+.tab.t-stale   { border-top-color: #fab387; }
+.tab.t-dead    { border-top-color: #ff7e95; }
+.tab.t-default .dot-pulse { background: #585b70; --cg: rgba(88,91,112,0.7); }
+.tab.t-recent  .dot-pulse { background: #5fd7ff; --cg: rgba(95,215,255,0.7); }
+.tab.t-mild    .dot-pulse { background: #ffd37a; --cg: rgba(255,211,122,0.7); }
+.tab.t-stale   .dot-pulse { background: #fab387; --cg: rgba(250,179,135,0.7); }
+.tab.t-dead    .dot-pulse { background: #ff7e95; --cg: rgba(255,126,149,0.7); }
+.tab.t-default .row2 { color: #585b70; }
+
+/* 内容区: 屏幕分割 */
+.body {
+  background: #1e1e2e;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 320px;
+}
+.pane {
+  font-family: "Menlo", "JetBrains Mono", monospace;
+  font-size: 11.5px;
+  color: #cdd6f4;
+  padding: 14px 18px;
+  line-height: 1.7;
+  position: relative;
+  overflow: hidden;
+}
+.pane.editor { border-right: 1px solid #313244; }
+.pane .ph {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; color: #6c7086;
+  margin-bottom: 8px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.pane .ph .led { width: 6px; height: 6px; border-radius: 50%; background: #a6e3a1; }
+.pane.term .ph .led { background: #89dceb; }
+.pane .ln {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  white-space: pre;
+}
+.pane .ln .num { color: #45475a; text-align: right; user-select: none; }
+.pane .ln .src { color: #cdd6f4; }
+.tk-kw  { color: #cba6f7; }
+.tk-fn  { color: #89b4fa; }
+.tk-str { color: #a6e3a1; }
+.tk-com { color: #6c7086; font-style: italic; }
+.tk-typ { color: #f9e2af; }
+.tk-num { color: #fab387; }
+.prompt { color: #f5c2e7; }
+.dim    { color: #585b70; }
+.ok     { color: #a6e3a1; }
+.run    { color: #89dceb; }
+.cursor {
+  display: inline-block;
+  width: 7px; height: 14px;
+  background: #cdd6f4;
+  vertical-align: -2px;
+  margin-left: 2px;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Idle 强度: 5 个圆点指示器, 颜色映射 */
+.scale {
+  margin-top: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 11px;
+  color: rgba(15, 44, 45, 0.7);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.scale .item { display: flex; align-items: center; gap: 6px; }
+.scale .sw {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+.caption {
+  margin-top: 10px;
+  color: rgba(15, 44, 45, 0.62);
+  font-size: 11px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="title">iTerm2 Tab Color</div>
+  <div class="subtitle">burn-aware terminal signaling · tab color = how long since last input · auto-refresh 30s</div>
+  <div class="iterm">
+    <div class="titlebar">
+      <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+    </div>
+    <div class="tabs">
+      <div class="tab t-default">
+        <div class="row1">
+          <span class="icon">📋</span>
+          <span class="name">Inbox</span>
+        </div>
+        <div class="row2">no work yet</div>
+      </div>
+      <div class="tab t-active active">
+        <div class="row1">
+          <span class="icon">💻</span>
+          <span class="name">Code · auth</span>
+          <span class="dot-pulse"></span>
+        </div>
+        <div class="row2">editing · 2s ago</div>
+      </div>
+      <div class="tab t-mild">
+        <div class="row1">
+          <span class="icon">📊</span>
+          <span class="name">Weekly Report</span>
+        </div>
+        <div class="row2">idle 5m</div>
+      </div>
+      <div class="tab t-stale">
+        <div class="row1">
+          <span class="icon">🛠</span>
+          <span class="name">Dev Tools</span>
+        </div>
+        <div class="row2">idle 23m</div>
+      </div>
+      <div class="tab t-dead">
+        <div class="row1">
+          <span class="icon">📝</span>
+          <span class="name">Notes</span>
+        </div>
+        <div class="row2">idle 2h 14m</div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="pane editor">
+        <div class="ph"><span class="led"></span>code · auth.ts</div>
+<div class="ln"><span class="num">1</span><span class="src"><span class="tk-com">// burn-aware tab color daemon</span></span></div>
+<div class="ln"><span class="num">2</span><span class="src"><span class="tk-kw">import</span> { <span class="tk-typ">Snapshot</span>, <span class="tk-fn">colorForIdle</span> } <span class="tk-kw">from</span> <span class="tk-str">"./harness"</span>;</span></div>
+<div class="ln"><span class="num">3</span><span class="src"></span></div>
+<div class="ln"><span class="num">4</span><span class="src"><span class="tk-kw">export function</span> <span class="tk-fn">paintTab</span>(s: <span class="tk-typ">Snapshot</span>) {</span></div>
+<div class="ln"><span class="num">5</span><span class="src">  <span class="tk-kw">const</span> idle = <span class="tk-fn">Date</span>.<span class="tk-fn">now</span>() - s.lastInput;</span></div>
+<div class="ln"><span class="num">6</span><span class="src">  <span class="tk-kw">return</span> <span class="tk-fn">colorForIdle</span>(idle);</span></div>
+<div class="ln"><span class="num">7</span><span class="src">}</span></div>
+      </div>
+      <div class="pane term">
+        <div class="ph"><span class="led"></span>zsh · ~/burnkit</div>
+<div><span class="prompt">$</span> <span class="run">npm test</span></div>
+<div class="dim">&gt; burnkit@0.2.4 test</div>
+<div class="dim">&gt; node --test tests/*.test.js</div>
+<div class="ok">  ✓ tab_color: idle → green</div>
+<div class="ok">  ✓ tab_color: 5m idle → yellow</div>
+<div class="ok">  ✓ tab_color: 2h idle → red</div>
+<div class="run">  ⠋ router: c proxy routes <span class="dim">(3/7)</span></div>
+<div><span class="prompt">$</span> <span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="scale">
+    <div class="item"><span class="sw" style="background:#45475a"></span>default</div>
+    <div class="item"><span class="sw" style="background:#8df49c"></span>active · &lt;1m</div>
+    <div class="item"><span class="sw" style="background:#ffd37a"></span>mild · 5m</div>
+    <div class="item"><span class="sw" style="background:#fab387"></span>stale · 15m</div>
+    <div class="item"><span class="sw" style="background:#ff7e95"></span>dead · 1h+</div>
+  </div>
+  <div class="caption">glance at the menu bar — find the red tab, switch back to the green one</div>
+</div>
+</body>
+</html>

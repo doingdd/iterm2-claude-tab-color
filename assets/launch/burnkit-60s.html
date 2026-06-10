@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BurnKit — Claude Provider Router + iTerm2 Tab Color + Burn AI</title>
+  <style>
+    :root {
+      --ink: #12141d;
+      --panel: #11131c;
+      --panel-soft: #191c28;
+      --text: #e8ecf5;
+      --muted: #8d94a6;
+      --mint: #a9f5e6;
+      --mint-strong: #49dac3;
+      --green: #8df49c;
+      --amber: #ffd37a;
+      --violet: #f1b6ff;
+      --blue: #86b8ff;
+      --red: #ff7e95;
+      --paper: #d9fff4;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #d9fff4;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(21, 86, 77, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(21, 86, 77, 0.08) 1px, transparent 1px),
+        radial-gradient(circle at 18% 14%, rgba(255, 211, 122, 0.55), transparent 16%),
+        radial-gradient(circle at 84% 8%, rgba(134, 184, 255, 0.45), transparent 18%),
+        linear-gradient(135deg, #ccfff1 0%, #eafff6 44%, #d7f3ff 100%);
+      background-size: 28px 28px, 28px 28px, auto, auto, auto;
+    }
+
+    .grain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.16;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0, rgba(0, 0, 0, 0.18) 1px, transparent 1px, transparent 3px);
+      mix-blend-mode: multiply;
+    }
+
+    .brand {
+      position: absolute;
+      left: 46px;
+      top: 30px;
+      color: #0f2c2d;
+      letter-spacing: 0;
+      font-weight: 780;
+      font-size: 30px;
+    }
+
+    .brand span { color: #087c70; }
+
+    .tagline {
+      position: absolute;
+      right: 46px;
+      top: 38px;
+      color: rgba(15, 44, 45, 0.72);
+      font-size: 14px;
+      font-weight: 680;
+    }
+
+    /* ============ Scene container ============ */
+    .scene {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 90px;
+      bottom: 90px;
+    }
+
+    /* ============ Scene 1: Install ============ */
+    .install-scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: var(--s1-opacity, 0);
+      transform: scale(var(--s1-scale, 0.96));
+      transition: none;
+    }
+
+    .terminal-window {
+      width: 880px;
+      height: 480px;
+      background: var(--panel);
+      border-radius: 12px;
+      box-shadow: 0 34px 80px rgba(17, 23, 36, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.16);
+      overflow: hidden;
+    }
+
+    .titlebar {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 16px;
+      background: #0d0f17;
+      color: #6f7788;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.red { background: #ff5f57; }
+    .dot.yellow { background: #ffbd2e; }
+    .dot.green { background: #28c840; }
+    .titlebar .title { margin-left: 8px; color: #9aa2b5; }
+
+    .terminal-body {
+      position: relative;
+      height: calc(100% - 36px);
+      padding: 22px 28px;
+      font: 16px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 12px 12px;
+    }
+
+    .term-line {
+      min-height: 24px;
+      white-space: pre;
+    }
+
+    .term-line .prompt { color: var(--blue); font-weight: 760; }
+    .term-line .prompt::before { content: "> "; color: #72f0d1; }
+    .term-line .ok { color: var(--green); font-weight: 760; }
+    .term-line .muted { color: #7f8799; }
+    .term-line .accent { color: var(--mint); }
+    .term-line .warn { color: var(--amber); }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 9px;
+      height: 17px;
+      margin-left: 2px;
+      transform: translateY(3px);
+      background: #f8e5dc;
+      opacity: var(--cursor-opacity, 1);
+    }
+
+    /* ============ Scene 2: Tab color ============ */
+    .tabcolor-scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: var(--s2-opacity, 0);
+      transform: scale(var(--s2-scale, 0.96));
+    }
+
+    .iterm {
+      width: 900px;
+      height: 500px;
+      background: #1a1c25;
+      border-radius: 10px;
+      box-shadow: 0 30px 70px rgba(17, 23, 36, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+    }
+
+    .tabbar {
+      display: flex;
+      gap: 1px;
+      padding: 6px 8px 0;
+      background: #0d0f17;
+    }
+
+    .tab {
+      flex: 1;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #b8bdcb;
+      background: #1f2230;
+      border-radius: 6px 6px 0 0;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    .tab .swatch {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #5a6275;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .tab.green { background: #1c3a26; color: var(--green); }
+    .tab.green .swatch { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .tab.yellow { background: #3d3216; color: var(--amber); }
+    .tab.yellow .swatch { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+    .tab.red { background: #3a1c25; color: var(--red); }
+    .tab.red .swatch { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+    .iterm-body {
+      height: calc(100% - 42px);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: #0a0c14;
+    }
+
+    .iterm-pane {
+      background: var(--panel);
+      padding: 16px 18px;
+      font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #d7dcec;
+      position: relative;
+    }
+
+    .iterm-pane.green-border { box-shadow: inset 0 0 0 2px var(--green); }
+    .iterm-pane.yellow-border { box-shadow: inset 0 0 0 2px var(--amber); }
+    .iterm-pane.red-border { box-shadow: inset 0 0 0 2px var(--red); }
+
+    .pane-title {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .pane-state {
+      position: absolute;
+      bottom: 12px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+
+    .pane-state .label { color: var(--muted); }
+    .pane-state .value { color: var(--text); font-weight: 720; }
+
+    .legend {
+      position: absolute;
+      right: 46px;
+      top: 110px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: rgba(15, 44, 45, 0.78);
+      opacity: var(--legend-opacity, 0);
+    }
+
+    .legend-row { display: flex; align-items: center; gap: 10px; }
+    .legend-row .sw {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .legend-row.green .sw { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .legend-row.yellow .sw { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+    .legend-row.red .sw { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+    /* ============ Scene 3: c team + Burn AI menubar ============ */
+    .team-scene {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 0 60px;
+      align-items: center;
+      opacity: var(--s3-opacity, 0);
+      transform: translateY(var(--s3-y, 24px));
+    }
+
+    .pane-large {
+      background: var(--panel);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 22px 58px rgba(17, 23, 36, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.16);
+    }
+
+    .pane-large .pane-body {
+      padding: 18px 22px 50px;
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #dde3ef;
+    }
+
+    .pane-large h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      color: #f8fafc;
+    }
+
+    .pane-large .task { color: #9da7bd; margin-top: 10px; }
+
+    .pane-status-bar {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-top: 1px solid rgba(169, 245, 230, 0.18);
+      background: rgba(8, 10, 16, 0.95);
+      font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: nowrap;
+    }
+
+    .pane-status-bar strong { color: var(--status-color, var(--green)); }
+    .pane-status-bar span:last-child { color: #f5f7fb; overflow: hidden; text-overflow: ellipsis; }
+
+    .leader { --status-color: var(--violet); }
+    .mate { --status-color: var(--amber); }
+
+    /* ============ Bottom menubar (Burn AI) ============ */
+    .menubar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 14px;
+      padding: 0 18px;
+      background: rgba(15, 17, 25, 0.78);
+      backdrop-filter: blur(12px);
+      color: var(--text);
+      font: 12px -apple-system, BlinkMacSystemFont, sans-serif;
+      opacity: var(--menubar-opacity, 0);
+    }
+
+    .menubar-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .menubar-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      background: linear-gradient(135deg, #2a2d3a, #1a1c25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--mint);
+    }
+
+    .menubar-bar {
+      width: 60px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .menubar-bar-fill {
+      height: 100%;
+      background: var(--mint);
+      border-radius: 2px;
+      width: var(--fill, 30%);
+    }
+
+    .menubar-pct {
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ============ Caption ============ */
+    .caption {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      color: rgba(15, 44, 45, 0.78);
+      font-size: 16px;
+      font-weight: 720;
+      white-space: nowrap;
+      opacity: var(--caption-opacity, 0);
+    }
+
+    .scene-label {
+      position: absolute;
+      left: 46px;
+      top: 110px;
+      font: 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: rgba(15, 44, 45, 0.6);
+      font-weight: 720;
+      opacity: var(--label-opacity, 0);
+    }
+  </style>
+</head>
+<body>
+  <main id="stage">
+    <div class="brand">BurnKit <span>三件套</span></div>
+    <div class="tagline">overclock the human, then build the harness</div>
+
+    <div class="menubar" id="menubar">
+      <div class="menubar-item">
+        <div class="menubar-icon">C</div>
+        <div class="menubar-bar"><div class="menubar-bar-fill" id="bar1"></div></div>
+        <div class="menubar-pct" id="pct1">42%</div>
+      </div>
+      <div class="menubar-item">
+        <div class="menubar-icon">X</div>
+        <div class="menubar-bar"><div class="menubar-bar-fill" id="bar2"></div></div>
+        <div class="menubar-pct" id="pct2">18%</div>
+      </div>
+      <div class="menubar-item">
+        <div class="menubar-icon">D</div>
+        <div class="menubar-bar"><div class="menubar-bar-fill" id="bar3"></div></div>
+        <div class="menubar-pct" id="pct3">76%</div>
+      </div>
+      <div class="menubar-item">
+        <div class="menubar-icon">Z</div>
+        <div class="menubar-bar"><div class="menubar-bar-fill" id="bar4"></div></div>
+        <div class="menubar-pct" id="pct4">9%</div>
+      </div>
+      <div class="menubar-item">
+        <div class="menubar-icon">M</div>
+        <div class="menubar-bar"><div class="menubar-bar-fill" id="bar5"></div></div>
+        <div class="menubar-pct" id="pct5">55%</div>
+      </div>
+    </div>
+
+    <div class="scene-label" id="sceneLabel"></div>
+
+    <!-- Scene 1: Install -->
+    <div class="scene install-scene" id="s1">
+      <div class="terminal-window">
+        <div class="titlebar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="title">~/projects/burnkit — zsh</span>
+        </div>
+        <div class="terminal-body" id="termBody">
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2: Tab color -->
+    <div class="scene tabcolor-scene" id="s2">
+      <div class="iterm">
+        <div class="tabbar">
+          <div class="tab" id="tab1"><span class="swatch"></span><span>claude · refactor</span></div>
+          <div class="tab" id="tab2"><span class="swatch"></span><span>codex · tests</span></div>
+          <div class="tab" id="tab3"><span class="swatch"></span><span>codex · docs</span></div>
+        </div>
+        <div class="iterm-body">
+          <div class="iterm-pane" id="pane1">
+            <div class="pane-title">session 1 · refactor</div>
+            <div>// running…</div>
+            <div class="pane-state">
+              <span class="label">elapsed</span>
+              <span class="value" id="time1">0:42</span>
+            </div>
+          </div>
+          <div class="iterm-pane" id="pane2">
+            <div class="pane-title">session 2 · tests</div>
+            <div>// idle</div>
+            <div class="pane-state">
+              <span class="label">elapsed</span>
+              <span class="value" id="time2">1:35</span>
+            </div>
+          </div>
+          <div class="iterm-pane" id="pane3">
+            <div class="pane-title">session 3 · docs</div>
+            <div>// idle</div>
+            <div class="pane-state">
+              <span class="label">elapsed</span>
+              <span class="value" id="time3">5:08</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend" id="legend">
+      <div class="legend-row green"><span class="sw"></span>finished, collect now</div>
+      <div class="legend-row yellow"><span class="sw"></span>waited, parallelism leaking</div>
+      <div class="legend-row red"><span class="sw"></span>too long, human late</div>
+    </div>
+
+    <!-- Scene 3: Team + c routing -->
+    <div class="scene team-scene" id="s3">
+      <div class="pane-large leader">
+        <div class="titlebar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="title">Claude Code · team lead</span>
+        </div>
+        <div class="pane-body">
+          <h2>Team lead</h2>
+          <div>Planning split: frontend polish, test sweep.</div>
+          <div class="task">Dispatching 2 teammates from the current prompt.</div>
+        </div>
+        <div class="pane-status-bar">
+          <strong>config 2</strong>
+          <span>leader: glm-5.1</span>
+        </div>
+      </div>
+
+      <div class="pane-large mate">
+        <div class="titlebar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="title">teammate · implementation</span>
+        </div>
+        <div class="pane-body">
+          <h2>Teammate</h2>
+          <div>Taking implementation slice.</div>
+          <div class="task">Owns shell checks and router fixture.</div>
+        </div>
+        <div class="pane-status-bar">
+          <strong>config 0</strong>
+          <span>mate: minimax-m2.7</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption" id="caption"></div>
+    <div class="grain"></div>
+  </main>
+
+  <script>
+    const duration = 60000;
+
+    // ============ Install scene (0-20000ms) ============
+    const installLines = [
+      { html: '<span class="prompt">npx burnkit install all --dry-run</span>', type: 'type', dur: 1800 },
+      { html: '', type: 'wait', dur: 200 },
+      { html: '<span class="ok">✓</span> router <span class="muted">config.env created (mode 600)</span>', dur: 0 },
+      { html: '<span class="ok">✓</span> tabs   <span class="muted">launchd plist installed</span>', dur: 0 },
+      { html: '<span class="ok">✓</span> burn   <span class="muted">SwiftBar plugin written to ~/Desktop/swiftbar</span>', dur: 0 },
+      { html: '<span class="muted">3 tools, 1 command, 8 seconds.</span>', dur: 0 },
+      { html: '', type: 'wait', dur: 600 },
+      { html: '<span class="prompt">burnkit doctor</span>', type: 'type', dur: 1400 },
+      { html: '', type: 'wait', dur: 200 },
+      { html: '<span class="ok">✓</span> <span class="accent">router</span>   ready · 3 providers configured', dur: 0 },
+      { html: '<span class="ok">✓</span> <span class="accent">tabs</span>     daemon connected to iTerm2', dur: 0 },
+      { html: '<span class="ok">✓</span> <span class="accent">burn</span>     5 providers tracked, no login', dur: 0 },
+      { html: '<span class="muted">all green. ready to ship.</span>', dur: 0 },
+    ];
+
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function smooth(v) { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); }
+    function mix(a, b, p) { return a + (b - a) * smooth(p); }
+
+    function renderInstall(t) {
+      const body = document.getElementById('termBody');
+      let html = '';
+      let cursorAt = null;
+      let elapsed = 0;
+      for (let i = 0; i < installLines.length; i++) {
+        const line = installLines[i];
+        const start = elapsed;
+        if (line.type === 'type') {
+          const typed = t >= start + line.dur
+            ? line.html
+            : line.html.slice(0, Math.max(0, Math.floor((t - start) / line.dur * line.html.length)));
+          html += `<div class="term-line">${typed}<span class="cursor-blink"></span></div>`;
+          if (t < start + line.dur) {
+            cursorAt = i;
+            break;
+          }
+          elapsed = start + line.dur;
+        } else {
+          html += `<div class="term-line">${line.html}</div>`;
+          elapsed = start + line.dur;
+        }
+        if (i === installLines.length - 1) {
+          // last line, no cursor
+        }
+      }
+      body.innerHTML = html;
+    }
+
+    // ============ Tab color timing (20000-40000ms) ============
+    function renderTabs(t) {
+      // t is global; tab scene visible 20000-40000
+      const local = t - 20000;
+      // Tab 1 (refactor): green at 22000
+      const tab1 = document.getElementById('tab1');
+      const tab2 = document.getElementById('tab2');
+      const tab3 = document.getElementById('tab3');
+      const pane1 = document.getElementById('pane1');
+      const pane2 = document.getElementById('pane2');
+      const pane3 = document.getElementById('pane3');
+
+      // Reset
+      tab1.className = 'tab';
+      tab2.className = 'tab';
+      tab3.className = 'tab';
+      pane1.className = 'iterm-pane';
+      pane2.className = 'iterm-pane';
+      pane3.className = 'iterm-pane';
+
+      if (local > 2000) tab1.classList.add('green'), pane1.classList.add('green-border');
+      if (local > 4500) tab2.classList.add('yellow'), pane2.classList.add('yellow-border');
+      if (local > 7000) tab3.classList.add('red'), pane3.classList.add('red-border');
+    }
+
+    // ============ Main renderer ============
+    function renderAt(ms) {
+      const t = clamp(ms, 0, duration);
+
+      // Scene visibility
+      const s1 = t < 20000 ? 1 : 0;
+      const s1out = smooth(clamp((t - 17500) / 2500, 0, 1));
+      const s2in  = smooth(clamp((t - 18000) / 2200, 0, 1));
+      const s2    = t >= 18000 && t < 40000 ? 1 : 0;
+      const s2out = smooth(clamp((t - 37500) / 2500, 0, 1));
+      const s3in  = smooth(clamp((t - 38000) / 2200, 0, 1));
+      const s3    = t >= 38000 ? 1 : 0;
+
+      setVar('--s1-opacity', (s1 * (1 - s1out)).toFixed(3));
+      setVar('--s1-scale', mix(0.96, 1, 1 - s1out).toFixed(3));
+      setVar('--s2-opacity', (s2in * s2 * (1 - s2out)).toFixed(3));
+      setVar('--s2-scale', mix(0.96, 1, s2in * (1 - s2out)).toFixed(3));
+      setVar('--s3-opacity', s3in.toFixed(3));
+      setVar('--s3-y', `${mix(24, 0, s3in).toFixed(1)}px`);
+
+      // Menubar fades in scene 3
+      const mb = smooth(clamp((t - 42000) / 2000, 0, 1));
+      setVar('--menubar-opacity', mb.toFixed(3));
+
+      // Legend in scene 2
+      const lg = smooth(clamp((t - 21500) / 1500, 0, 1)) *
+                 (1 - smooth(clamp((t - 38000) / 1500, 0, 1)));
+      setVar('--legend-opacity', lg.toFixed(3));
+
+      // Scene label
+      const sl = smooth(clamp((t - 1000) / 600, 0, 1)) *
+                 (1 - smooth(clamp((t - 39000) / 1000, 0, 1)));
+      setVar('--label-opacity', sl.toFixed(3));
+
+      // Caption cycles
+      let cap = '';
+      if (t < 20000) cap = 'one command installs router, tabs, and burn';
+      else if (t < 40000) cap = 'tabs turn green / yellow / red when AI is idle';
+      else cap = 'c team routes leader & teammates to different providers';
+      const capOp = smooth(clamp((t - 1500) / 600, 0, 1)) *
+                    (1 - smooth(clamp((t - duration + 2000) / 1500, 0, 1)));
+      setVar('--caption-opacity', capOp.toFixed(3));
+      document.getElementById('caption').textContent = cap;
+
+      // Scene label text
+      let label = '';
+      if (t < 20000) label = '01 · install';
+      else if (t < 40000) label = '02 · iTerm2 tab color';
+      else label = '03 · c team + burn AI';
+      document.getElementById('sceneLabel').textContent = label;
+
+      // Cursor blink (only scene 1)
+      setVar('--cursor-opacity', Math.sin(t / 200) > -0.1 ? '1' : '0');
+
+      // Render scene content
+      if (t < 20000) renderInstall(t);
+      if (t >= 20000 && t < 40000) renderTabs(t);
+
+      // Animate menubar fill values smoothly
+      const m1 = mix(0, 42, smooth(clamp((t - 42000) / 2000, 0, 1)));
+      const m2 = mix(0, 18, smooth(clamp((t - 43000) / 2000, 0, 1)));
+      const m3 = mix(0, 76, smooth(clamp((t - 44000) / 2000, 0, 1)));
+      const m4 = mix(0, 9,  smooth(clamp((t - 45000) / 2000, 0, 1)));
+      const m5 = mix(0, 55, smooth(clamp((t - 46000) / 2000, 0, 1)));
+      document.getElementById('bar1').style.setProperty('--fill', m1 + '%');
+      document.getElementById('bar2').style.setProperty('--fill', m2 + '%');
+      document.getElementById('bar3').style.setProperty('--fill', m3 + '%');
+      document.getElementById('bar4').style.setProperty('--fill', m4 + '%');
+      document.getElementById('bar5').style.setProperty('--fill', m5 + '%');
+      document.getElementById('pct1').textContent = Math.round(m1) + '%';
+      document.getElementById('pct2').textContent = Math.round(m2) + '%';
+      document.getElementById('pct3').textContent = Math.round(m3) + '%';
+      document.getElementById('pct4').textContent = Math.round(m4) + '%';
+      document.getElementById('pct5').textContent = Math.round(m5) + '%';
+    }
+
+    function setVar(name, value) {
+      document.documentElement.style.setProperty(name, value);
+    }
+
+    window.renderAt = renderAt;
+    renderAt(0);
+
+    // Auto-loop for live preview
+    let start = null;
+    function tick(ts) {
+      if (start === null) start = ts;
+      const elapsed = (ts - start) % duration;
+      renderAt(elapsed);
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
