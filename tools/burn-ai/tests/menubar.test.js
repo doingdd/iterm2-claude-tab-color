@@ -138,6 +138,48 @@ test("renderMenuBar title keeps provider icons scoped to their usage segments", 
   }
 });
 
+test("renderMenuBar shows current Codex 7d usage without a synthetic 5h row", () => {
+  const weeklyOnly = {
+    generatedAt: "2026-07-14T01:51:00.000Z",
+    profile: "low",
+    providers: [
+      {
+        usage: {
+          provider: "codex",
+          source: "test",
+          observedAt: "2026-07-14T01:50:43.493Z",
+          planType: "prolite",
+          windows: [
+            { name: "seven_day", windowMinutes: 10080, usedPercent: 52, resetsAt: "2026-07-20T01:46:56.000Z" },
+          ],
+        },
+        analysis: {
+          provider: "codex",
+          state: "RAW",
+          profile: "low",
+          observedAt: "2026-07-14T01:50:43.493Z",
+          sevenDay: { name: "seven_day", windowMinutes: 10080, usedPercent: 52, resetsAt: "2026-07-20T01:46:56.000Z" },
+          message: "Codex 5h usage unavailable; showing 7d only.",
+        },
+        meta: {
+          source: "test",
+          observedAt: "2026-07-14T01:50:43.493Z",
+          ageSeconds: 17,
+          stale: false,
+        },
+      },
+    ],
+    issues: [],
+  };
+
+  const output = renderMenuBar(weeklyOnly);
+  assert.match(output, /tooltip=7D:52%/);
+  assert.match(output, /Codex  Learning/);
+  assert.match(output, /7d\s+52%\s+reset/);
+  assert.doesNotMatch(output, /\n5h\s/);
+  assert.match(output, /Codex 5h usage unavailable; showing 7d only\./);
+});
+
 test("swiftBarStatusItemVisibilityKeys finds hidden status item cache keys", () => {
   const output = `{
     MakePluginExecutable = 1;

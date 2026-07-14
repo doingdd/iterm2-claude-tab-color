@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isDir } from "./fs-util.js";
-import { makeProviderUsage, normalizeWindow } from "./usage.js";
-import { ProviderUsage } from "./types.js";
+import { normalizeWindow } from "./usage.js";
+import { ProviderUsage, UsageWindow, WindowName } from "./types.js";
 
 interface CodexCandidate {
   usage: ProviderUsage;
@@ -64,20 +64,37 @@ export function usageFromCodexRateLimits(
   if (typeof record.limit_name === "string") {
     return null;
   }
-  const fiveHour = normalizeWindow("five_hour", record.primary, 300);
-  const sevenDay = normalizeWindow("seven_day", record.secondary, 10080);
-  if (!fiveHour || !sevenDay) {
+
+  const windows = [record.primary, record.secondary]
+    .map((raw): UsageWindow | null => {
+      if (raw === null || typeof raw !== "object") {
+        return null;
+      }
+      const rawRecord = raw as Record<string, unknown>;
+      const rawWindowMinutes = rawRecord.window_minutes ?? rawRecord.windowMinutes;
+      const windowMinutes =
+        typeof rawWindowMinutes === "number"
+          ? rawWindowMinutes
+          : typeof rawWindowMinutes === "string" && rawWindowMinutes.trim() !== ""
+            ? Number(rawWindowMinutes)
+            : null;
+      const name: WindowName | null =
+        windowMinutes === 300 ? "five_hour" : windowMinutes === 10080 ? "seven_day" : null;
+      return name ? normalizeWindow(name, raw, name === "five_hour" ? 300 : 10080) : null;
+    })
+    .filter((window): window is UsageWindow => window !== null);
+
+  if (windows.length === 0) {
     return null;
   }
 
-  return makeProviderUsage({
+  return {
     provider: "codex",
     source: options.source,
-    observedAt: options.observedAt,
+    observedAt: options.observedAt ?? new Date().toISOString(),
     planType: typeof record.plan_type === "string" ? record.plan_type : null,
-    fiveHour,
-    sevenDay,
-  });
+    windows,
+  };
 }
 
 function latestCandidateFromFile(file: string): CodexCandidate | null {

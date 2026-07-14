@@ -42,6 +42,41 @@ test("analyzeUsage returns RAW during cold start", () => {
   assert.equal(analysis.state, "RAW");
 });
 
+test("analyzeUsage keeps current 7d data when Codex no longer reports 5h usage", () => {
+  const usage = {
+    provider: "codex",
+    source: "test",
+    observedAt: "2026-07-14T01:50:43.493Z",
+    planType: "prolite",
+    windows: [
+      { name: "seven_day", windowMinutes: 10080, usedPercent: 52, resetsAt: "2026-07-20T01:46:56.000Z" },
+    ],
+  };
+
+  const analysis = analyzeUsage(usage, [usage], "low", new Date("2026-07-14T01:51:00.000Z"));
+  assert.equal(analysis.state, "RAW");
+  assert.equal(analysis.fiveHour, undefined);
+  assert.equal(analysis.sevenDay?.usedPercent, 52);
+  assert.equal(analysis.message, "Codex 5h usage unavailable; showing 7d only.");
+});
+
+test("analyzeUsage preserves limit risk when only the 7d window is available", () => {
+  const usage = {
+    provider: "codex",
+    source: "test",
+    observedAt: "2026-07-14T01:50:43.493Z",
+    planType: "prolite",
+    windows: [
+      { name: "seven_day", windowMinutes: 10080, usedPercent: 95, resetsAt: "2026-07-20T01:46:56.000Z" },
+    ],
+  };
+
+  const analysis = analyzeUsage(usage, [usage], "low", new Date("2026-07-14T01:51:00.000Z"));
+  assert.equal(analysis.state, "LIMIT_RISK");
+  assert.equal(analysis.fiveHour, undefined);
+  assert.equal(analysis.sevenDay?.usedPercent, 95);
+});
+
 test("analyzeUsage marks limit risk before dynamic advice", () => {
   const usage = {
     ...baseUsage,

@@ -53,6 +53,70 @@ test("collectCodexUsage reads latest payload.rate_limits from jsonl", () => {
   assert.equal(usage.windows[0].usedPercent, 12);
 });
 
+test("collectCodexUsage prefers the latest 7d-only payload over an older dual-window payload", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "burn-ai-codex-"));
+  fs.mkdirSync(path.join(dir, "sessions"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "sessions", "rollout.jsonl"),
+    [
+      JSON.stringify({
+        timestamp: "2026-07-13T01:28:26.961Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          rate_limits: {
+            primary: { used_percent: 49, window_minutes: 300, resets_at: 1783828214 },
+            secondary: { used_percent: 8, window_minutes: 10080, resets_at: 1784511014 },
+            plan_type: "prolite",
+          },
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-07-14T01:50:43.493Z",
+        type: "event_msg",
+        payload: {
+          type: "token_count",
+          rate_limits: {
+            primary: { used_percent: 52, window_minutes: 10080, resets_at: 1784510416 },
+            secondary: null,
+            plan_type: "prolite",
+          },
+        },
+      }),
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const usage = collectCodexUsage(dir);
+  assert.equal(usage.observedAt, "2026-07-14T01:50:43.493Z");
+  assert.deepEqual(usage.windows.map((window) => window.name), ["seven_day"]);
+  assert.equal(usage.windows[0].usedPercent, 52);
+});
+
+test("collectCodexUsage accepts numeric-string window_minutes from the latest payload", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "burn-ai-codex-"));
+  fs.mkdirSync(path.join(dir, "sessions"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "sessions", "rollout.jsonl"),
+    `${JSON.stringify({
+      timestamp: "2026-07-14T01:50:43.493Z",
+      payload: {
+        rate_limits: {
+          primary: { used_percent: 52, window_minutes: "10080", resets_at: 1784510416 },
+          secondary: null,
+          plan_type: "prolite",
+        },
+      },
+    })}\n`,
+    "utf8",
+  );
+
+  const usage = collectCodexUsage(dir);
+  assert.deepEqual(usage.windows.map((window) => window.name), ["seven_day"]);
+  assert.equal(usage.windows[0].windowMinutes, 10080);
+});
+
 test("collectCodexUsage ignores non-session jsonl files", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "burn-ai-codex-"));
   fs.mkdirSync(path.join(dir, "sessions"), { recursive: true });

@@ -37,6 +37,19 @@ test("notification cooldown resets when 5h window changes", () => {
   assert.equal(shouldNotify(nextWindow, paths, new Date("2026-05-08T00:05:00.000Z")), true);
 });
 
+test("7d-only limit risk remains eligible for notification", () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "burn-ai-home-"));
+  const paths = buildPaths(home);
+  const weeklyLimitRisk = {
+    ...analysis,
+    provider: "codex",
+    state: "LIMIT_RISK",
+    fiveHour: undefined,
+    sevenDay: { ...analysis.sevenDay, usedPercent: 95 },
+  };
+  assert.equal(shouldNotify(weeklyLimitRisk, paths, new Date("2026-07-14T01:51:00.000Z")), true);
+});
+
 test("iconForAnalysis selects state-specific icon", () => {
   assert.match(iconForAnalysis(analysis), /burn-ai-under\.png$/);
   assert.match(iconForAnalysis({ ...analysis, state: "OVER_BURN" }), /burn-ai-over\.png$/);

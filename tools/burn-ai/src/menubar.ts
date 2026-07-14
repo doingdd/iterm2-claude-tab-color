@@ -455,9 +455,14 @@ function titleSegment(provider: StatusSnapshot["providers"][number]) {
   }
   const fiveHour = provider.analysis.fiveHour;
   const sevenDay = provider.analysis.sevenDay;
-  const titleFive = fiveHour ? `${Math.round(fiveHour.usedPercent)}%` : "--";
-  const titleSeven = sevenDay ? `${Math.round(sevenDay.usedPercent)}%` : "--";
-  return `5H:${titleFive},7D:${titleSeven}`;
+  const parts: string[] = [];
+  if (fiveHour) {
+    parts.push(`5H:${Math.round(fiveHour.usedPercent)}%`);
+  }
+  if (sevenDay) {
+    parts.push(`7D:${Math.round(sevenDay.usedPercent)}%`);
+  }
+  return parts.join(",");
 }
 
 function titleBars(provider: StatusSnapshot["providers"][number]) {

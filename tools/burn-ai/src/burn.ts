@@ -65,8 +65,12 @@ export function estimateConversionRate(samples: ProviderUsage[]): number | null 
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
+function providerLabel(provider: ProviderId) {
+  return provider === "claude" ? "Claude" : provider === "glm" ? "GLM" : provider === "deepseek" ? "DeepSeek" : provider === "minimax" ? "MiniMax" : "Codex";
+}
+
 function messageForState(provider: ProviderId, state: BurnState, fiveUsed?: number, target?: { min: number; max: number }) {
-  const label = provider === "claude" ? "Claude" : provider === "glm" ? "GLM" : provider === "deepseek" ? "DeepSeek" : provider === "minimax" ? "MiniMax" : "Codex";
+  const label = providerLabel(provider);
   if (state === "LIMIT_RISK") {
     return `${label} usage is close to a plan limit. Consider switching provider or lowering intensity.`;
   }
@@ -105,17 +109,7 @@ export function analyzeUsage(
     };
   }
 
-  if (!fiveHour || !sevenDay) {
-    return {
-      provider: usage.provider,
-      state: "RAW",
-      profile,
-      observedAt: usage.observedAt,
-      message: `${usage.provider}: missing 5h or 7d usage window.`,
-    };
-  }
-
-  if (fiveHour.usedPercent >= 90 || sevenDay.usedPercent >= 90) {
+  if ((fiveHour?.usedPercent ?? 0) >= 90 || (sevenDay?.usedPercent ?? 0) >= 90) {
     return {
       provider: usage.provider,
       state: "LIMIT_RISK",
@@ -124,6 +118,24 @@ export function analyzeUsage(
       fiveHour,
       sevenDay,
       message: messageForState(usage.provider, "LIMIT_RISK"),
+    };
+  }
+
+  if (!fiveHour || !sevenDay) {
+    const label = providerLabel(usage.provider);
+    const message = !fiveHour && sevenDay
+      ? `${label} 5h usage unavailable; showing 7d only.`
+      : fiveHour && !sevenDay
+        ? `${label} 7d usage unavailable; showing 5h only.`
+        : `${label} usage windows unavailable.`;
+    return {
+      provider: usage.provider,
+      state: "RAW",
+      profile,
+      observedAt: usage.observedAt,
+      fiveHour,
+      sevenDay,
+      message,
     };
   }
 
