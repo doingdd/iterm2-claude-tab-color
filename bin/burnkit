@@ -1,324 +1,109 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE="${BASH_SOURCE[0]}"
-while [ -L "$SOURCE" ]; do
-  DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
-  SOURCE="$(readlink "$SOURCE")"
-  [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
-done
-SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROUTER_DIR="$REPO_ROOT/tools/claude-provider-router"
-ROUTER_INSTALLER="$ROUTER_DIR/install-core.sh"
-TAB_COLOR_DIR="$REPO_ROOT/tools/iterm2-tab-color"
-TAB_COLOR_INSTALLER="$TAB_COLOR_DIR/install-core.sh"
-TAB_COLOR_UNINSTALLER="$TAB_COLOR_DIR/uninstall-core.sh"
-BURN_AI_DIR="$REPO_ROOT/tools/burn-ai"
-BURNKIT_DOCTOR_FAILURES=0
+readonly CLAUDE_LANES_REPO="https://github.com/hanzhangzzz/claude-lanes"
+readonly CODING_USAGE_BAR_REPO="https://github.com/hanzhangzzz/coding-usage-bar"
+readonly TAB_COLOR_REPO="https://github.com/hanzhangzzz/iterm2-ai-tab-color"
 
 usage() {
     cat <<'EOF'
-BurnKit - AI coding workflow pressure toolkit
+BurnKit - directory for three standalone AI coding tools
 
 Usage:
-  burnkit doctor
-  burnkit install router
-  burnkit install tabs [tab-color options...]
-  burnkit install burn [burn-ai install options...]
-  burnkit install all
-  burnkit uninstall tabs [tab-color options...]
-  burnkit uninstall burn [--dry-run]
-  burnkit uninstall all [--dry-run]
-  burnkit router [c args...]
-  burnkit burn [burn-ai args...]
-  burnkit status [burn-ai status options...]
+  burnkit projects   Show standalone projects and install commands
+  burnkit doctor     Check whether the standalone tools are available
+  burnkit --help
 
-Examples:
-  burnkit doctor
-  burnkit install router
-  burnkit install tabs --dry-run --skip-python-check
-  burnkit install tabs
-  burnkit install burn --dry-run
-  c 0
-  c team 2 0
-  burnkit status --refresh
+BurnKit no longer bundles, installs, uninstalls, or proxies these tools.
+Use each standalone project's own command instead.
 EOF
 }
 
-section() {
-    printf '\n%s\n' "$1"
-    printf '%s\n' "----------------------------------------"
+projects() {
+    cat <<EOF
+Claude Lanes
+  Explicit per-window Claude provider routing
+  Repository: $CLAUDE_LANES_REPO
+  Install:    npm install -g claude-lanes
+  Command:    c
+
+Coding Usage Bar
+  Coding-plan usage in the macOS menu bar
+  Repository: $CODING_USAGE_BAR_REPO
+  Install:    npx coding-usage-bar install
+  Command:    coding-usage-bar doctor
+
+iTerm2 AI Tab Color
+  Attention-state colors for Claude Code and Codex tabs
+  Repository: $TAB_COLOR_REPO
+  Install:    clone the repository, then run ./install.sh
+EOF
 }
 
 ok() {
-    printf 'OK  %s\n' "$1"
-}
-
-warn() {
-    printf 'WARN %s\n' "$1"
+    printf 'OK   %s\n' "$1"
 }
 
 fail() {
-    BURNKIT_DOCTOR_FAILURES=$((BURNKIT_DOCTOR_FAILURES + 1))
     printf 'FAIL %s\n' "$1"
-}
-
-die() {
-    printf 'Error: %s\n' "$1" >&2
-    exit 1
-}
-
-require_file() {
-    [ -f "$1" ] || die "missing file: $1"
-}
-
-has_command() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-has_arg() {
-    local needle="$1"
-    shift || true
-    local arg
-    for arg in "$@"; do
-        [ "$arg" = "$needle" ] && return 0
-    done
-    return 1
-}
-
-install_router() {
-    require_file "$ROUTER_INSTALLER"
-    bash "$ROUTER_INSTALLER" "$@"
-}
-
-install_tabs() {
-    require_file "$TAB_COLOR_INSTALLER"
-    bash "$TAB_COLOR_INSTALLER" "$@"
-}
-
-ensure_burn_ai_ready() {
-    local force_build="${1:-0}"
-    [ -d "$BURN_AI_DIR" ] || die "missing Burn AI directory: $BURN_AI_DIR"
-    require_file "$BURN_AI_DIR/package.json"
-
-    has_command node || die "node is required for Burn AI"
-
-    has_command npm || die "npm is required to build Burn AI"
-
-    if [ ! -d "$BURN_AI_DIR/node_modules" ]; then
-        section "Installing Burn AI npm dependencies"
-        (cd "$BURN_AI_DIR" && npm install)
-    fi
-
-    if [ "$force_build" = "1" ] || [ ! -x "$BURN_AI_DIR/dist/cli.js" ]; then
-        section "Building Burn AI"
-        (cd "$BURN_AI_DIR" && npm run build)
-    fi
-}
-
-run_burn_ai() {
-    ensure_burn_ai_ready 0
-    node "$BURN_AI_DIR/dist/cli.js" "$@"
-}
-
-install_burn() {
-    if has_arg "--dry-run" "$@"; then
-        section "Burn AI dry run"
-        printf '[dry-run] would run npm install in %s when dependencies are missing\n' "$BURN_AI_DIR"
-        printf '[dry-run] would run npm run build in %s before local install\n' "$BURN_AI_DIR"
-        printf '[dry-run] would run node %s/dist/cli.js install %s\n' "$BURN_AI_DIR" "$*"
-        return 0
-    fi
-    ensure_burn_ai_ready 1
-    node "$BURN_AI_DIR/dist/cli.js" install "$@"
-}
-
-install_cli_shim() {
-    local shim_dir="$HOME/.local/bin"
-    local shim="$shim_dir/burnkit"
-    local target
-    target="$(cd "$SCRIPT_DIR" && pwd)/burnkit"
-
-    if [ -L "$shim" ] && [ "$(readlink "$shim")" = "$target" ]; then
-        ok "CLI shim already installed: $shim"
-        return 0
-    fi
-
-    if [ -e "$shim" ] && ! [ -L "$shim" ]; then
-        warn "CLI shim exists but is not a managed symlink: $shim"
-        return 0
-    fi
-
-    mkdir -p "$shim_dir"
-    ln -sf "$target" "$shim"
-    ok "installed CLI shim: $shim -> $target"
-
-    local in_path=0
-    case ":${PATH}:" in
-        *":$shim_dir:"*) in_path=1 ;;
-    esac
-    if [ "$in_path" -eq 0 ]; then
-        warn "add $shim_dir to PATH to use burnkit globally"
-    fi
-}
-
-install_all() {
-    install_cli_shim
-    if has_arg "--dry-run" "$@"; then
-        install_router --dry-run
-    else
-        install_router
-    fi
-    install_tabs "$@"
-    if has_arg "--dry-run" "$@"; then
-        install_burn --dry-run
-    else
-        install_burn
-    fi
-}
-
-uninstall_tabs() {
-    require_file "$TAB_COLOR_UNINSTALLER"
-    bash "$TAB_COLOR_UNINSTALLER" "$@"
-}
-
-uninstall_burn() {
-    ensure_burn_ai_ready 0
-    node "$BURN_AI_DIR/dist/cli.js" uninstall "$@"
-}
-
-uninstall_cli_shim() {
-    local shim="$HOME/.local/bin/burnkit"
-    if [ -L "$shim" ]; then
-        rm "$shim"
-        ok "removed CLI shim: $shim"
-    elif [ -e "$shim" ]; then
-        warn "CLI shim is not a managed symlink, skipping: $shim"
-    else
-        ok "CLI shim not installed: $shim"
-    fi
-}
-
-uninstall_all() {
-    uninstall_tabs "$@"
-    uninstall_burn "$@"
-    uninstall_cli_shim
-}
-
-run_router() {
-    require_file "$ROUTER_DIR/c"
-    "$ROUTER_DIR/c" "$@"
+    DOCTOR_FAILURES=$((DOCTOR_FAILURES + 1))
 }
 
 doctor() {
-    BURNKIT_DOCTOR_FAILURES=0
+    local DOCTOR_FAILURES=0
+    local uid
+    uid="$(id -u)"
 
-    section "BurnKit repository"
-    ok "repo root: $REPO_ROOT"
-
-    section "Claude Provider Router"
-    if [ -x "$ROUTER_DIR/c" ]; then
-        ok "launcher exists: $ROUTER_DIR/c"
+    if command -v c >/dev/null 2>&1 && realpath "$(command -v c)" | grep -Fq '/claude-lanes/'; then
+        ok "Claude Lanes: $(command -v c)"
     else
-        fail "launcher missing or not executable: $ROUTER_DIR/c"
-    fi
-    if [ -f "$ROUTER_DIR/config.env" ]; then
-        ok "config exists: $ROUTER_DIR/config.env"
-    else
-        warn "config missing; run: burnkit install router"
-    fi
-    if [ -x "$ROUTER_INSTALLER" ]; then
-        ok "installer exists: $ROUTER_INSTALLER"
-    else
-        fail "installer missing or not executable: $ROUTER_INSTALLER"
-    fi
-    if has_command uvicorn; then
-        ok "uvicorn found for team routing"
-    else
-        warn "uvicorn missing; team mode needs: python3 -m pip install fastapi uvicorn httpx"
+        fail "Claude Lanes is not installed. Run: npm install -g claude-lanes"
     fi
 
-    section "iTerm2 Tab Color"
-    if [ -x "$TAB_COLOR_INSTALLER" ]; then
-        ok "installer exists: $TAB_COLOR_INSTALLER"
+    if command -v coding-usage-bar >/dev/null 2>&1; then
+        ok "Coding Usage Bar: $(command -v coding-usage-bar)"
     else
-        fail "installer missing or not executable: $TAB_COLOR_INSTALLER"
-    fi
-    if has_command python3 && python3 -c "import iterm2" >/dev/null 2>&1; then
-        ok "python3 can import iterm2"
-    else
-        warn "python3 iterm2 package missing; run: pip3 install iterm2"
+        fail "Coding Usage Bar is not installed. Run: npx coding-usage-bar install"
     fi
 
-    section "Burn AI"
-    if has_command node; then
-        ok "node: $(node --version)"
+    if launchctl print "gui/$uid/io.github.hanzhangzzz.iterm2-ai-tab-color" >/dev/null 2>&1; then
+        ok "iTerm2 AI Tab Color launchd agent is loaded"
     else
-        fail "node missing"
-    fi
-    if has_command npm; then
-        ok "npm: $(npm --version)"
-    else
-        fail "npm missing"
-    fi
-    if [ -x "$BURN_AI_DIR/dist/cli.js" ]; then
-        ok "burn-ai is built: $BURN_AI_DIR/dist/cli.js"
-        if ! node "$BURN_AI_DIR/dist/cli.js" doctor --dry-run; then
-            fail "burn-ai doctor reported missing required checks"
-        fi
-    else
-        warn "burn-ai is not built; run: burnkit install burn --dry-run"
+        fail "iTerm2 AI Tab Color is not running. See: $TAB_COLOR_REPO"
     fi
 
-    [ "$BURNKIT_DOCTOR_FAILURES" -eq 0 ]
+    if [ "$DOCTOR_FAILURES" -ne 0 ]; then
+        printf '\n%d check(s) failed. Run `burnkit projects` for standalone install commands.\n' "$DOCTOR_FAILURES" >&2
+        return 1
+    fi
+
+    printf '\nAll standalone tools are available.\n'
 }
 
-main() {
-    local command="${1:-}"
-    shift || true
-
-    case "$command" in
-        ""|-h|--help|help)
-            usage
-            ;;
-        doctor)
-            doctor
-            ;;
-        install)
-            local target="${1:-}"
-            shift || true
-            case "$target" in
-                router) install_router "$@" ;;
-                tabs|tab-color|iterm2) install_tabs "$@" ;;
-                burn|burn-ai) install_burn "$@" ;;
-                all) install_all "$@" ;;
-                *) die "unknown install target: ${target:-<empty>}" ;;
-            esac
-            ;;
-        uninstall)
-            local target="${1:-}"
-            shift || true
-            case "$target" in
-                tabs|tab-color|iterm2) uninstall_tabs "$@" ;;
-                burn|burn-ai) uninstall_burn "$@" ;;
-                all) uninstall_all "$@" ;;
-                *) die "unknown uninstall target: ${target:-<empty>}" ;;
-            esac
-            ;;
-        router|c)
-            run_router "$@"
-            ;;
-        burn|burn-ai)
-            run_burn_ai "$@"
-            ;;
-        status)
-            run_burn_ai status "$@"
-            ;;
-        *)
-            die "unknown command: $command"
-            ;;
-    esac
+legacy_command() {
+    printf 'Error: `burnkit %s` was removed when the tools became standalone projects.\n' "$*" >&2
+    printf 'Run `burnkit projects` for the current repositories and commands.\n' >&2
+    return 2
 }
 
-main "$@"
+case "${1:---help}" in
+    -h|--help|help)
+        usage
+        ;;
+    projects)
+        [ "$#" -eq 1 ] || legacy_command "$@"
+        projects
+        ;;
+    doctor)
+        [ "$#" -eq 1 ] || legacy_command "$@"
+        doctor
+        ;;
+    install|uninstall|router|burn|status)
+        legacy_command "$@"
+        ;;
+    *)
+        printf 'Error: unknown command: %s\n\n' "$1" >&2
+        usage >&2
+        exit 2
+        ;;
+esac

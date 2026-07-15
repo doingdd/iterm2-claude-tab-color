@@ -1,26 +1,15 @@
 {
   "name": "burnkit",
-  "version": "0.1.2",
-  "description": "AI coding workflow pressure toolkit — Claude Provider Router, iTerm2 Tab Color, Burn AI",
+  "version": "0.2.0",
+  "description": "Directory for Claude Lanes, Coding Usage Bar, and iTerm2 AI Tab Color",
   "keywords": [
     "claude-code",
     "codex",
-    "claude",
-    "openai",
-    "anthropic",
     "ai-coding",
     "developer-tools",
-    "cli",
-    "iterm2",
-    "swiftbar",
-    "macos",
-    "terminal",
-    "c-router",
-    "provider-router",
-    "tab-color",
-    "burn-ai",
-    "claude-dev-tools",
-    "ai-usage"
+    "claude-lanes",
+    "coding-usage-bar",
+    "iterm2-ai-tab-color"
   ],
   "license": "MIT",
   "bin": {
@@ -28,19 +17,10 @@
   },
   "files": [
     "bin/",
-    "scripts/",
-    "tools/burn-ai/dist/",
-    "tools/burn-ai/assets/",
-    "tools/burn-ai/package.json",
-    "tools/iterm2-tab-color/",
-    "tools/claude-provider-router/"
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
   ],
-  "scripts": {
-    "prepack": "cd tools/burn-ai && npm ci && npm run build"
-  },
-  "devDependencies": {
-    "playwright": "^1.48.0"
-  },
   "engines": {
     "node": ">=20"
   }
