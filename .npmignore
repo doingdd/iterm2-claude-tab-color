@@ -1,23 +1,18 @@
-# Sensitive: never publish provider tokens. config.env is generated at install
-# time from config.env.example and contains live credentials.
-config.env
-tools/claude-provider-router/config.env
-
-# Python bytecode cache — build artifact, never ship.
-# Explicit paths: glob patterns don't reliably filter dirs in the `files` whitelist.
-__pycache__/
-*.pyc
-tools/claude-provider-router/__pycache__/
-tools/iterm2-tab-color/__pycache__/
-
-# Local dev / recording artifacts
+# Local development and recording artifacts
+node_modules/
 *.tape
 .serena/
 .omx/
 .pytest_cache/
+.playwright-mcp/
 raw_think.md
-plan.md
-tools/burn-ai/plan.md
+save.txt
 
-# OS junk
+# Generated and OS-local files
+__pycache__/
+*.pyc
 .DS_Store
+publish-state/
+*.state.json
+*-compose-preview.png
+rough-compose.png
